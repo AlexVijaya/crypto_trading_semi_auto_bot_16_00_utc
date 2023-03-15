@@ -251,6 +251,7 @@ async def get_hisorical_data_from_exchange_for_many_symbols(exchange,
                             print("not_active_pair_counter=",not_active_pair_counter)
                             list_of_inactive_pairs.append(f"{trading_pair}_on_{exchange}")
                             continue
+                            #
 
                         data_df['Timestamp'] = \
                             [datetime.datetime.timestamp(x) for x in data_df.index]

@@ -5,6 +5,11 @@ import os
 import shutil
 import datetime
 import pprint
+
+def run_upload_file_script(python_file_name_to_run):
+    interpreter = sys.executable
+    subprocess.run([interpreter, python_file_name_to_run])
+
 def delete_files_in_current_rebound_breakout_and_false_breakout():
   # Get current directory
   current_dir = os.getcwd()
@@ -80,7 +85,9 @@ def run_multiple_search_current_rebound_breakout_false_breakout_situations():
              'check_if_asset_is_approaching_its_ath_closer_than_50percent_atr.py',
              'check_if_asset_is_approaching_its_atl_closer_than_50percent_atr.py',
              'check_if_asset_is_approaching_its_atl.py',
-             'check_if_asset_is_approaching_its_ath.py']
+             'check_if_asset_is_approaching_its_ath.py',
+             'current_search_for_tickers_with_complex_false_breakout_of_ath.py',
+             'current_search_for_tickers_with_complex_false_breakout_of_atl.py']
 
     # Run each Python file in the list in parallel
     processes = []
@@ -100,7 +107,11 @@ def run_multiple_search_current_rebound_breakout_false_breakout_situations():
     #     # pprint.print(output)
 if __name__=="__main__":
     start_time = time.time()
+
     run_multiple_search_current_rebound_breakout_false_breakout_situations()
+    python_file_name_to_run = "upload_file_to_goggle_drive2.py"
+    run_upload_file_script(python_file_name_to_run)
+
     end_time = time.time()
     overall_time = end_time - start_time
     print('overall time in minutes=', overall_time / 60.0)

@@ -291,6 +291,12 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     data_df['ticker'] = trading_pair
                     data_df['exchange'] = exchange
 
+                    # exclude levereged tockens
+                    if "3L" in trading_pair:
+                        continue
+                    if "3S" in trading_pair:
+                        continue
+
 
 
 
@@ -476,10 +482,18 @@ def convert_string_timeframe_into_seconds(timeframe):
         timeframe_in_seconds = 86400/3
     return timeframe_in_seconds
 
-def get_real_time_bitcoin_price():
+def get_real_time_bitcoin_price_from_binance():
     binance = ccxt.binance()
     btc_ticker = binance.fetch_ticker('BTC/USDT')
     last_bitcoin_price=btc_ticker['close']
+    print(f"last bitcoin price from binance is {last_bitcoin_price}")
+    return last_bitcoin_price
+
+def get_real_time_bitcoin_price_from_bybit():
+    binance = ccxt.bybit()
+    btc_ticker = binance.fetch_ticker('BTC/USDT')
+    last_bitcoin_price=btc_ticker['close']
+    print (f"last bitcoin price from bybit is {last_bitcoin_price}")
     return last_bitcoin_price
 
 def fetch_historical_usdt_pairs_asynchronously(last_bitcoin_price,engine,exchanges_list,timeframe):
@@ -579,7 +593,16 @@ def fetch_all_ohlcv_tables(timeframe,database_name,last_bitcoin_price):
     connection_to_ohlcv_for_usdt_pairs.close ()
 if __name__=="__main__":
     timeframe='1d'
-    last_bitcoin_price=get_real_time_bitcoin_price()
+    last_bitcoin_price=20000
+    try:
+        last_bitcoin_price=get_real_time_bitcoin_price_from_binance()
+    except:
+        traceback.print_exc()
+
+    try:
+        last_bitcoin_price = get_real_time_bitcoin_price_from_bybit()
+    except:
+        traceback.print_exc()
     print("last_bitcoin_price")
     print(last_bitcoin_price)
     database_name="ohlcv_1d_data_for_usdt_pairs_1600"
