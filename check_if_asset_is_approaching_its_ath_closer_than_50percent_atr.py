@@ -19,7 +19,7 @@ from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
 from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_ath_breakout
 from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_atl_breakout
-
+from count_leading_zeros_in_a_number import count_zeros
 
 def calculate_atr_without_paranormal_bars_from_numpy_array(atr_over_this_period,
                   numpy_array_slice,

@@ -19,7 +19,7 @@ from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
 from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_ath_breakout
 from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_atl_breakout
-
+from count_leading_zeros_in_a_number import count_zeros
 
 
 def print_df_to_file(dataframe, subdirectory_name):
@@ -986,6 +986,26 @@ def search_for_tickers_with_breakout_situations(db_where_ohlcv_data_for_stocks_i
                     list ( column_of_timestamps ).index ( timestamp_of_current_atl )
                 # print ( "row_of_last_atl" )
                 # print ( row_of_last_atl )
+
+                # check if the found atl is legit and no broken for the last 2 years
+                last_all_time_low_row_number = row_of_last_atl
+                atl_is_not_broken_for_a_long_time = True
+                try:
+                    number_of_days_where_atl_was_not_broken = 366 * 2
+                    table_with_ohlcv_data_df_slice_numpy_array = table_with_ohlcv_data_df.to_numpy(copy=True)
+                    atl_is_not_broken_for_a_long_time = check_atl_breakout(
+                        table_with_ohlcv_data_df_slice_numpy_array,
+                        number_of_days_where_atl_was_not_broken,
+                        atl,
+                        last_all_time_low_row_number)
+                    print(f"atl={atl}")
+                    print(f"atl_is_not_broken_for_a_long_time for {stock_name}={atl_is_not_broken_for_a_long_time}")
+
+                except:
+                    pass
+
+                if atl_is_not_broken_for_a_long_time == False:
+                    continue
 
 
                 current_low = last_several_rows_in_np_array_slice[-1][3]
