@@ -17,7 +17,53 @@ import ccxt
 from sqlalchemy import create_engine
 from sqlalchemy_utils import create_database,database_exists
 from pytz import timezone
+import pprint
+from verify_that_asset_has_enough_volume import check_volume
+from get_info_from_load_markets import get_asset_type2
+from get_info_from_load_markets import get_fees
+from get_info_from_load_markets import fetch_huobipro_ohlcv
+from get_info_from_load_markets import get_active_trading_pairs_from_huobipro
+from get_info_from_load_markets import get_exchange_object_and_limit_of_daily_candles
+from get_info_from_load_markets import get_exchange_object
+from get_info_from_load_markets import get_exchange_url
+from get_info_from_load_markets import get_maker_taker_fees_for_huobi
+from get_info_from_load_markets import get_limit_of_daily_candles_original_limits
+from get_info_from_load_markets import fetch_entire_ohlcv
+from get_info_from_load_markets import get_perpetual_swap_url
 
+def get_maker_and_taker_fees_and_is_shortable(exchange, trading_pair):
+
+    maker_fee=np.nan
+    taker_fee=np.nan
+    is_shortable=np.nan
+
+    # Get the symbol for the specified trading pair
+    symbol = exchange.markets[trading_pair]['symbol']
+
+    # Check if API keys are required for the exchange
+    if exchange.apiKey is None or exchange.secret is None:
+        return maker_fee, taker_fee, is_shortable
+    
+    # Retrieve the exchange info for the specified symbol
+    exchange_info = exchange.load_trading_limits(symbol)
+    print(f"exchange_info_for_{symbol}")
+    pprint.pprint(exchange_info)
+    #
+    # print("exchange.markets[symbol]")
+    # pprint.pprint(exchange.markets[symbol])
+
+    # Extract the maker and taker fees
+    maker_fee = exchange_info['maker']
+    taker_fee = exchange_info['taker']
+
+
+
+    # Check if the symbol is shortable
+    is_shortable = exchange.markets[symbol].get('short', False)
+
+
+    # Return the results as a tuple
+    return maker_fee, taker_fee, is_shortable
 
 def connect_to_postres_db_with_deleting_it_first(database):
     dialect = db_config.dialect
@@ -211,9 +257,35 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
     global list_of_inactive_pairs
     global not_active_pair_counter
     exchange_object=False
+    limit_of_daily_candles=np.nan
+    active_trading_pairs_list=[]
+    # active_trading_pairs_list_from_huobipro=[]
     try:
-        exchange_object = getattr ( ccxt , exchange ) ()
+        # active_trading_pairs_list_from_huobipro=[]
+        # if exchange in ["huobipro"]:
+        #     active_trading_pairs_list_from_huobipro = get_active_trading_pairs_from_huobipro()
+        exchange_object, limit_of_daily_candles=\
+            get_limit_of_daily_candles_original_limits(exchange)
+
+
+        # exchange_object = getattr ( ccxt , exchange ) ()
         exchange_object.enableRateLimit = True
+        # exchange_object.fetch_markets()
+        # exchange_object_huobipro=np.nan
+
+        # if exchange in ['huobipro']:
+        #     exchange_object_huobipro= ccxt.huobipro()
+        # shortable_markets=''
+        # try:
+        #     # shortable_markets = [market['symbol'] for market in markets if market.get('margin', {}).get('short', False)]
+        #     # shortable_markets = [market['symbol'] for market in markets if
+        #     #                      'margin' in market and market['margin'].get('short', False)]
+        #     shortable_markets = [market['symbol'] for market in markets if
+        #                          'margin_enabled' in market and market['margin_enabled']]
+        # except:
+        #     traceback.print_exc()
+        # print(f"shortable_markets for {exchange}")
+        # print(shortable_markets)
     except:
         traceback.print_exc()
 
@@ -223,15 +295,30 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
         #                                      "datasets" ,
         #                                      "sql_databases" ,
         #                                      "all_exchanges_multiple_tables_historical_data_for_usdt_trading_pairs.db" ) )
+        markets=np.nan
+        try:
+            markets=exchange_object.load_markets ()
+        except:
+            pass
+        # print("markets___")
+        # pprint.pprint(markets)
+        # time.sleep(10000)
 
-        exchange_object.load_markets ()
+
+
+
+
         list_of_all_symbols_from_exchange=exchange_object.symbols
-        # print(f"list_of_all_symbols_from_exchange={exchange}")
-        # print(list_of_all_symbols_from_exchange)
+        print(f"list_of_all_symbols_from_exchange={exchange}")
+        print(list_of_all_symbols_from_exchange)
 
         list_of_trading_pairs_with_USDT = []
         list_of_trading_pairs_with_USD = []
         list_of_trading_pairs_with_BTC = []
+
+
+        # if exchange in ["huobipro"]:
+        #     list_of_all_symbols_from_exchange=active_trading_pairs_list_from_huobipro
 
         for trading_pair in list_of_all_symbols_from_exchange:
             # for item in counter_gen():
@@ -242,9 +329,13 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
             try:
                 print ( "exchange=" , exchange )
                 print ( "usdt_pair=" , trading_pair )
-                if "UP/" in trading_pair or "DOWN/" in trading_pair or "BEAR/" in trading_pair or "BULL/" in trading_pair:
+                if "UP/" in trading_pair or "DOWN/" in trading_pair or "BEAR/" in \
+                        trading_pair or "BULL/" in trading_pair:
                     continue
-                if ("/USDT" in trading_pair) or ("/USDC" in trading_pair) or( "/BUSD" in trading_pair):
+                if ("/USDT" in trading_pair) or ("/USDC" in trading_pair) \
+                        or( "/BUSD" in trading_pair) or ( "/BTC" in trading_pair) or\
+                        ( "/HT" in trading_pair)  :
+                    print("usdt_pair1=", trading_pair)
                     new_counter = new_counter + 1
                     print("new_counter=",new_counter)
                     list_of_trading_pairs_with_USDT.append(trading_pair)
@@ -252,11 +343,75 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     #         list_of_trading_pairs_with_USDT )
 
                     # if ('active' in exchange_object.markets[trading_pair]) or (exchange_object.markets[trading_pair]['active']):
-                    data = exchange_object.fetch_ohlcv ( trading_pair , timeframe, since=1516147200000)
 
-                    # print ( f"counter_for_{exchange}=" , counter )
-                    header = ['Timestamp' , 'open' , 'high' , 'low' , 'close' , 'volume']
-                    data_df = pd.DataFrame ( data , columns = header ).set_index ( 'Timestamp' )
+                    # #collect data from 5 years ago
+                    # data = exchange_object.fetch_ohlcv ( trading_pair , timeframe, since=1516147200000)
+                    #
+                    # collect data from 2011 years ago
+                    data_df=np.nan
+
+                    # if exchange in ["exmo"]:
+                    #     try:
+                    #         data = exchange_object.fetch_ohlcv(trading_pair, timeframe, limit=3000)
+                    #         # print ( f"counter_for_{exchange}=" , counter )
+                    #         header = ['Timestamp', 'open', 'high', 'low', 'close', 'volume']
+                    #         data_df = pd.DataFrame(data, columns=header).set_index('Timestamp')
+                    #
+                    #     except:
+                    #         traceback.print_exc()
+                    # elif exchange in ["huobipro"]:
+                    #     data_df=fetch_huobipro_ohlcv(trading_pair,
+                    #                                  exchange_object_huobipro,
+                    #                                  timeframe='1d')
+
+
+                    # elif exchange in ["gateio"]:
+                    #     try:
+                    #         data = exchange_object.fetch_ohlcv(trading_pair, timeframe, limit=1000)
+                    #         # print ( f"counter_for_{exchange}=" , counter )
+                    #         header = ['Timestamp', 'open', 'high', 'low', 'close', 'volume']
+                    #         data_df = pd.DataFrame(data, columns=header).set_index('Timestamp')
+                    #
+                    #     except:
+                    #         traceback.print_exc()
+
+                    # else:
+                    #data = exchange_object.fetch_ohlcv(trading_pair, timeframe, since=1293829200000)
+                    asset_type=''
+                    try:
+                        asset_type=get_asset_type2(markets, trading_pair.replace("_", "/"))
+                        print(f"asset_type for {trading_pair} on {exchange}")
+
+                        print(asset_type)
+                        if asset_type=="option":
+                            continue
+                        if asset_type=="future":
+                            continue
+                    except:
+                        traceback.print_exc()
+
+
+
+                    # try:
+                    #     data = exchange_object.fetch_ohlcv(trading_pair, timeframe,
+                    #                                        limit=limit_of_daily_candles)
+                    #     # print ( f"counter_for_{exchange}=" , counter )
+                    #     header = ['Timestamp', 'open', 'high', 'low', 'close', 'volume']
+                    #     data_df = pd.DataFrame(data, columns=header).set_index('Timestamp')
+                    #
+                    # except:
+                    #     traceback.print_exc()
+                    try:
+                        data_df=fetch_entire_ohlcv(exchange_object,exchange,trading_pair,timeframe,limit_of_daily_candles)
+                    except:
+                        traceback.print_exc()
+
+                    # if exchange in ["huobi", "huobipro"]:
+                    #     try:
+                    #         data_df=fetch_huobipro_ohlcv(trading_pair, timeframe='1d')
+                    #     except:
+                    #         traceback.print_exc()
+
                     # try:
                     #     data_4h = await exchange_object.fetch_ohlcv ( trading_pair , '1d' )
                     #
@@ -286,16 +441,112 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     print ( f'ohlcv for {trading_pair} on exchange {exchange}\n' )
                     print ( data_df )
 
+
+
+
+
                     trading_pair=trading_pair.replace("/","_")
 
                     data_df['ticker'] = trading_pair
                     data_df['exchange'] = exchange
+                    # print("markets[trading_pair]")
 
-                    # exclude levereged tockens
+                    # print(markets[trading_pair])
+
+
+                    # add asset type to df
+                    try:
+                        data_df['asset_type'] = asset_type
+                    except:
+                        data_df['asset_type'] = np.nan
+                        traceback.print_exc()
+
+                    # add maker and taker fees
+                    try:
+                        if exchange!='huobipro':
+                            maker_fee, taker_fee=get_fees(markets, trading_pair.replace("_","/"))
+                            data_df['maker_fee'] = maker_fee
+                            data_df['taker_fee'] = taker_fee
+
+                    except:
+                        data_df['maker_fee'] = np.nan
+                        data_df['taker_fee'] = np.nan
+                        traceback.print_exc()
+
+                    try:
+                        if exchange == "huobipro":
+                            maker_fee, taker_fee = get_maker_taker_fees_for_huobi(exchange_object)
+                            data_df['maker_fee'] = maker_fee
+                            data_df['taker_fee'] = taker_fee
+                            print("fees for huobi pro")
+                            print("maker_fee for huobi")
+                            print(maker_fee)
+                            print("taker_fee for huobi")
+                            print(taker_fee)
+                    except:
+                        data_df['maker_fee'] = np.nan
+                        data_df['taker_fee'] = np.nan
+                        traceback.print_exc()
+
+                    # add asset type to df
+                    # try:
+                    #     data_df['asset_type'] = asset_type
+                    # except:
+                    #     data_df['asset_type'] = np.nan
+                    #     traceback.print_exc()
+
+
+
+
+                    # get info if asset is shortable , get maker and taker fees
+                    # try:
+                    #     trading_pair_initial = trading_pair.replace("_", "/")
+                    #     maker_fee, taker_fee, is_shortable = \
+                    #         get_maker_and_taker_fees_and_is_shortable(exchange_object, trading_pair_initial)
+                    #     data_df['maker_fee'] = maker_fee
+                    #     data_df['taker_fee'] = taker_fee
+                    #     data_df['is_shortable'] = is_shortable
+                    # except:
+                    #     traceback.print_exc()
+
+                    #exclude levereged tockens
                     if "3L" in trading_pair:
                         continue
                     if "3S" in trading_pair:
                         continue
+
+                    if "4L" in trading_pair:
+                        continue
+                    if "4S" in trading_pair:
+                        continue
+
+                    if "5L" in trading_pair:
+                        continue
+                    if "5S" in trading_pair:
+                        continue
+
+                    # add url of trading pair to df
+                    try:
+                        # market = markets[trading_pair.replace("_", "/")]
+                        # market_id = market['id']
+                        url_of_trading_pair =\
+                            get_exchange_url(exchange, exchange_object, trading_pair.replace("_", "/"))
+                        data_df['url_of_trading_pair'] = url_of_trading_pair
+                    except:
+                        data_df['url_of_trading_pair'] = np.nan
+                        traceback.print_exc()
+
+                    # add url of trading pair to df
+                    if asset_type=='swap':
+                        try:
+
+                            url_of_trading_pair = \
+                                get_perpetual_swap_url(exchange, trading_pair.replace("_", "/"))
+                            data_df['url_of_trading_pair'] = url_of_trading_pair
+                        except:
+                            data_df['url_of_trading_pair'] = np.nan
+                            traceback.print_exc()
+
 
 
 
@@ -304,26 +555,48 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     if len(data_df)<10:
                         continue
 
-                    # slice last 30 days for volume calculation
-                    min_volume_over_these_many_last_days=30
-                    data_df_n_days_slice=data_df.iloc[:-1].tail(min_volume_over_these_many_last_days).copy()
-                    data_df_n_days_slice["volume_by_close"]=\
-                        data_df_n_days_slice["volume"]*data_df_n_days_slice["close"]
-                    print("data_df_n_days_slice")
-                    print(data_df_n_days_slice)
-                    min_volume_over_last_n_days_in_dollars=min(data_df_n_days_slice["volume_by_close"])
-                    print("min_volume_over_last_n_days_in_dollars")
-                    print(min_volume_over_last_n_days_in_dollars)
+                    # # slice last 30 days for volume calculation
+                    # min_volume_over_these_many_last_days=30
+                    # data_df_n_days_slice=data_df.iloc[:-1].tail(min_volume_over_these_many_last_days).copy()
+                    # data_df_n_days_slice["volume_by_close"]=\
+                    #     data_df_n_days_slice["volume"]*data_df_n_days_slice["close"]
+                    # print("data_df_n_days_slice")
+                    # print(data_df_n_days_slice)
+                    # min_volume_over_last_n_days_in_dollars=min(data_df_n_days_slice["volume_by_close"])
+                    # print("min_volume_over_last_n_days_in_dollars")
+                    # print(min_volume_over_last_n_days_in_dollars)
+                    #
+                    # #проверить, что объем за последние n дней не меньше, чем 2 цены биткойна
+                    # if "_BTC" not in trading_pair:
+                    #     if min_volume_over_last_n_days_in_dollars<1*last_bitcoin_price:
+                    #         print(f"{trading_pair} discarded due to low volume")
+                    #         continue
+                    # else:
+                    #     if min_volume_over_last_n_days_in_dollars<1:
+                    #         print(f"{trading_pair} discarded due to low volume")
+                    #         continue
 
-                    #проверить, что объем за последние n дней не меньше, чем 2 цены биткойна
-                    if min_volume_over_last_n_days_in_dollars<2*last_bitcoin_price:
+                    # #проверить, что объем за последние n дней не меньше, чем 1 цены биткойна
+                    min_volume_over_these_many_last_days = 30
+                    min_volume_in_bitcoin=2
+                    asset_has_enough_volume=True
+                    asset_has_enough_volume=check_volume(trading_pair,
+                                                         min_volume_over_these_many_last_days,
+                                                         data_df,
+                                                         min_volume_in_bitcoin,
+                                                         last_bitcoin_price)
+                    if not asset_has_enough_volume:
                         continue
+
 
 
                     current_timestamp=time.time()
                     last_timestamp_in_df=data_df.tail(1).index.item()/1000.0
                     print("current_timestamp=",current_timestamp)
                     print("data_df.tail(1).index.item()=",data_df.tail(1).index.item()/1000.0)
+
+                    # if not trading_pair['active']:
+                    #     continue
 
                     #check if the pair is active
                     timeframe_in_seconds=convert_string_timeframe_into_seconds(timeframe)
@@ -405,6 +678,8 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                         print(f"discarded pair due to stable coin being the first part is {trading_pair}")
                         continue
 
+                    print(f"{trading_pair} was added to df")
+
 
                     data_df.to_sql ( f"{trading_pair}_on_{exchange}" ,
                                      engine ,
@@ -416,9 +691,9 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                 #     #print(trading_pair)
                 #     list_of_trading_pairs_with_USD.append(trading_pair)
 
-                elif "/BTC" in trading_pair:
-                    #print(trading_pair)
-                    list_of_trading_pairs_with_BTC.append(trading_pair)
+                # elif "/BTC" in trading_pair:
+                #     #print(trading_pair)
+                #     list_of_trading_pairs_with_BTC.append(trading_pair)
 
 
                 else:
@@ -482,18 +757,10 @@ def convert_string_timeframe_into_seconds(timeframe):
         timeframe_in_seconds = 86400/3
     return timeframe_in_seconds
 
-def get_real_time_bitcoin_price_from_binance():
+def get_real_time_bitcoin_price():
     binance = ccxt.binance()
     btc_ticker = binance.fetch_ticker('BTC/USDT')
     last_bitcoin_price=btc_ticker['close']
-    print(f"last bitcoin price from binance is {last_bitcoin_price}")
-    return last_bitcoin_price
-
-def get_real_time_bitcoin_price_from_bybit():
-    binance = ccxt.bybit()
-    btc_ticker = binance.fetch_ticker('BTC/USDT')
-    last_bitcoin_price=btc_ticker['close']
-    print (f"last bitcoin price from bybit is {last_bitcoin_price}")
     return last_bitcoin_price
 
 def fetch_historical_usdt_pairs_asynchronously(last_bitcoin_price,engine,exchanges_list,timeframe):
@@ -538,11 +805,11 @@ def fetch_historical_usdt_pairs_asynchronously(last_bitcoin_price,engine,exchang
     # await asyncio.gather(*coroutines, return_exceptions = True)
     #
     for exchange in exchanges_list:
-        # do not use exchanges where next bar print time is not 1600 utc
-        list_of_exchanges_where_next_bar_print_utc_time_16 = \
-            ["huobipro", "huobi", "digifinex", "bitrue", "lbank2", "lbank"]
-        if exchange not in list_of_exchanges_where_next_bar_print_utc_time_16:
+        if exchange not in ['huobipro']:
             continue
+
+        # if exchange!="huobipro":
+        #     continue
 
         get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price, exchange,
                                                           engine, timeframe)
@@ -590,19 +857,15 @@ def fetch_all_ohlcv_tables(timeframe,database_name,last_bitcoin_price):
     for process in process_list:
         process.join ()
 
-    connection_to_ohlcv_for_usdt_pairs.close ()
-if __name__=="__main__":
-    timeframe='1d'
-    last_bitcoin_price=20000
     try:
-        last_bitcoin_price=get_real_time_bitcoin_price_from_binance()
+        connection_to_ohlcv_for_usdt_pairs.close ()
     except:
         traceback.print_exc()
 
-    try:
-        last_bitcoin_price = get_real_time_bitcoin_price_from_bybit()
-    except:
-        traceback.print_exc()
+
+if __name__=="__main__":
+    timeframe='1d'
+    last_bitcoin_price=get_real_time_bitcoin_price()
     print("last_bitcoin_price")
     print(last_bitcoin_price)
     database_name="ohlcv_1d_data_for_usdt_pairs_1600"

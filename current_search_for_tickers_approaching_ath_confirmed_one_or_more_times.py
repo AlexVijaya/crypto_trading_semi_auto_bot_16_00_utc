@@ -17,10 +17,16 @@ from sqlalchemy import MetaData
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
-from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_ath_breakout
-from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_atl_breakout
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_ath_breakout
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_atl_breakout
 from count_leading_zeros_in_a_number import count_zeros
 
+def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
+    asset_type = ohlcv_data_df["asset_type"].iat[-1]
+    maker_fee = ohlcv_data_df["maker_fee"].iat[-1]
+    taker_fee = ohlcv_data_df["taker_fee"].iat[-1]
+    url_of_trading_pair = ohlcv_data_df["url_of_trading_pair"].iat[-1]
+    return asset_type,maker_fee,taker_fee,url_of_trading_pair
 
 def print_df_to_file(dataframe, subdirectory_name):
     series = dataframe.squeeze()
@@ -679,6 +685,13 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
             exchange = table_with_ohlcv_data_df.loc[0 , "exchange"]
             short_name = table_with_ohlcv_data_df.loc[0 , 'short_name']
 
+            try:
+                asset_type, maker_fee, taker_fee, url_of_trading_pair = \
+                    get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(
+                        table_with_ohlcv_data_df)
+            except:
+                traceback.print_exc()
+
 
 
             # truncated_high_and_low_table_with_ohlcv_data_df[["high","low"]]=table_with_ohlcv_data_df[["high","low"]].round(decimals=2)
@@ -693,35 +706,37 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
             #truncate high and low to two decimal number
 
             table_with_ohlcv_data_df["high"] = \
-                table_with_ohlcv_data_df["high"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["high"].apply ( round , args = (20 ,) )
             table_with_ohlcv_data_df["low"] = \
-                table_with_ohlcv_data_df["low"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["low"].apply ( round , args = (20 ,) )
             table_with_ohlcv_data_df["open"] = \
-                table_with_ohlcv_data_df["open"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["open"].apply ( round , args = (20 ,) )
             table_with_ohlcv_data_df["close"] = \
-                table_with_ohlcv_data_df["close"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["close"].apply ( round , args = (20 ,) )
 
             initial_table_with_ohlcv_data_df = table_with_ohlcv_data_df.copy ()
             truncated_high_and_low_table_with_ohlcv_data_df = table_with_ohlcv_data_df.copy ()
 
             truncated_high_and_low_table_with_ohlcv_data_df["high"]=\
-                table_with_ohlcv_data_df["high"].apply(round,args=(6,))
+                table_with_ohlcv_data_df["high"].apply(round,args = (20 ,))
             truncated_high_and_low_table_with_ohlcv_data_df["low"] = \
-                table_with_ohlcv_data_df["low"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["low"].apply ( round , args = (20 ,) )
             truncated_high_and_low_table_with_ohlcv_data_df["open"] = \
-                table_with_ohlcv_data_df["open"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["open"].apply ( round , args = (20 ,) )
             truncated_high_and_low_table_with_ohlcv_data_df["close"] = \
-                table_with_ohlcv_data_df["close"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["close"].apply ( round , args = (20 ,) )
 
             print('table_with_ohlcv_data_df.loc[0,"close"]')
             print ( table_with_ohlcv_data_df.loc[0 , "close"] )
 
-            # round high and low to two decimal number
+            # round high and low
 
-            # truncated_high_and_low_table_with_ohlcv_data_df["high"]=\
-            #     table_with_ohlcv_data_df["high"].apply(round,args=(2,))
-            # truncated_high_and_low_table_with_ohlcv_data_df["low"] = \
-            #     table_with_ohlcv_data_df["low"].apply ( round , args = (2 ,) )
+            last_close_price = get_last_close_price_of_asset(table_with_ohlcv_data_df)
+            number_of_zeroes_in_price = count_zeros(last_close_price)
+            truncated_high_and_low_table_with_ohlcv_data_df["high"] = \
+                table_with_ohlcv_data_df["high"].apply(round, args=(number_of_zeroes_in_price + 3,))
+            truncated_high_and_low_table_with_ohlcv_data_df["low"] = \
+                table_with_ohlcv_data_df["low"].apply(round, args=(number_of_zeroes_in_price + 3,))
 
             # print ( "after_table_with_ohlcv_data_df" )
             # print ( table_with_ohlcv_data_df )
@@ -848,7 +863,7 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
                                                       table_with_ohlcv_data_df,
                                                       row_number_of_bpu1)
 
-                advanced_atr = round(advanced_atr, 6)
+                advanced_atr = round(advanced_atr,20)
 
                 #get ohlcv of bsu
                 open_of_bsu = high_of_bsu = low_of_bsu = close_of_bsu = volume_of_bsu = timestamp_of_bsu = np.nan
@@ -902,6 +917,18 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
                                                   timestamp_of_bpu1_with_time,min_volume_over_last_n_days,min_volume_over_this_many_last_days)
 
                 list_of_crypto_tickers_with_last_high_equal_to_ath_and_equal_to_limit_level.append(stock_name)
+
+                try:
+                    asset_type, maker_fee, taker_fee, url_of_trading_pair = \
+                        get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(table_with_ohlcv_data_df)
+
+                    df_with_level_atr_bpu_bsu_etc["asset_type"] = asset_type
+                    df_with_level_atr_bpu_bsu_etc["maker_fee"] = maker_fee
+                    df_with_level_atr_bpu_bsu_etc["taker_fee"] = taker_fee
+                    df_with_level_atr_bpu_bsu_etc["url_of_trading_pair"] = url_of_trading_pair
+                except:
+                    traceback.print_exc()
+
                 df_with_level_atr_bpu_bsu_etc.to_sql(
                     table_where_ticker_which_had_ath_equal_to_limit_level,
                     engine_for_db_where_levels_formed_by_ath_equal_to_limit_level_will_be,

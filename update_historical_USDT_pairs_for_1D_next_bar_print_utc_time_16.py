@@ -20,7 +20,11 @@ import ccxt
 from sqlalchemy import create_engine
 from sqlalchemy_utils import create_database,database_exists
 from pytz import timezone
-
+from verify_that_asset_has_enough_volume import check_volume
+from get_info_from_load_markets import get_limit_of_daily_candles_original_limits
+def get_last_index_column_value_from_ohlcv_table(ohlcv_data_df):
+    last_index = ohlcv_data_df["index"].iat[-1]
+    return last_index
 def drop_table(table_name, engine):
     conn = engine.connect()
     query = text(f"DROP TABLE IF EXISTS {table_name}")
@@ -184,6 +188,13 @@ def get_last_timestamp_from_ohlcv_table(ohlcv_data_df):
     last_timestamp = ohlcv_data_df["Timestamp"].iat[-1]
     return last_timestamp
 
+def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
+    asset_type = ohlcv_data_df["asset_type"].iat[-1]
+    maker_fee = ohlcv_data_df["maker_fee"].iat[-1]
+    taker_fee = ohlcv_data_df["taker_fee"].iat[-1]
+    url_of_trading_pair = ohlcv_data_df["url_of_trading_pair"].iat[-1]
+    return asset_type,maker_fee,taker_fee,url_of_trading_pair
+
 def add_time_of_next_candle_print_to_df(data_df):
     try:
         # Set the timezone for Moscow
@@ -239,7 +250,8 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
     exchange_object=False
     try:
         print("exchange1=", exchange)
-        exchange_object = getattr ( ccxt , exchange ) ()
+        exchange_object, limit_of_daily_candles = \
+            get_limit_of_daily_candles_original_limits(exchange)
 
 
 
@@ -282,6 +294,14 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     table_with_ohlcv_data_df = \
                         pd.read_sql_query(f'''select * from "{string_for_comparison_pair_plus_exchange}"''',
                                           engine)
+
+                    # #delete last row because it is not a complete bar
+                    last_index = get_last_index_column_value_from_ohlcv_table(table_with_ohlcv_data_df)
+                    engine.execute(f'''DELETE FROM public."{string_for_comparison_pair_plus_exchange}" WHERE "index" >= {last_index};''')
+
+                    # drop the last row from df
+                    table_with_ohlcv_data_df = table_with_ohlcv_data_df.drop(table_with_ohlcv_data_df.index[-1])
+
                     last_timestamp = get_last_timestamp_from_ohlcv_table(table_with_ohlcv_data_df)
                     print(f"last_timestamp for {trading_pair} on {exchange}")
                     print(last_timestamp)
@@ -376,6 +396,15 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
 
                     ohlcv_data_several_last_rows_df["exchange"] = exchange
                     print("5program got here")
+
+                    asset_type, maker_fee, taker_fee, url_of_trading_pair = \
+                        get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(table_with_ohlcv_data_df)
+
+                    ohlcv_data_several_last_rows_df["asset_type"] = asset_type
+                    ohlcv_data_several_last_rows_df["maker_fee"] = maker_fee
+                    ohlcv_data_several_last_rows_df["taker_fee"] = taker_fee
+                    ohlcv_data_several_last_rows_df["url_of_trading_pair"] = url_of_trading_pair
+
                     ohlcv_data_several_last_rows_df["short_name"] = np.nan
                     print("6program got here")
                     ohlcv_data_several_last_rows_df["country"] = np.nan
@@ -594,8 +623,10 @@ def fetch_historical_usdt_pairs_asynchronously(last_bitcoin_price,engine,exchang
             FROM public."ticker_exchange_print_time" 
             WHERE "next_bar_print_time_utc"='00:00:00' 
             GROUP BY "exchange";'''
-        list_of_exchanges_where_next_bar_print_utc_time_16=\
-            ["huobipro","huobi","digifinex","bitrue","lbank2","lbank"]
+        list_of_exchanges_where_next_bar_print_utc_time_16= \
+            ["huobipro"]
+            # ["huobipro","huobi","digifinex","bitrue","lbank2","lbank"]
+
         if exchange not in list_of_exchanges_where_next_bar_print_utc_time_16:
             continue
         get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price, exchange,

@@ -17,11 +17,16 @@ from sqlalchemy import MetaData
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
-from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_ath_breakout
-from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_atl_breakout
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_ath_breakout
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_atl_breakout
 from count_leading_zeros_in_a_number import count_zeros
 
-
+def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
+    asset_type = ohlcv_data_df["asset_type"].iat[-1]
+    maker_fee = ohlcv_data_df["maker_fee"].iat[-1]
+    taker_fee = ohlcv_data_df["taker_fee"].iat[-1]
+    url_of_trading_pair = ohlcv_data_df["url_of_trading_pair"].iat[-1]
+    return asset_type,maker_fee,taker_fee,url_of_trading_pair
 def print_df_to_file(dataframe, subdirectory_name):
     series = dataframe.squeeze()
     # get today's date
@@ -552,17 +557,17 @@ def create_string_for_output_to_file_for_stock_rebound_from_ath(stock_name,
     take_profit_3_to_1 = sell_order - (advanced_atr * 0.5) * 3
     take_profit_4_to_1 = sell_order - (advanced_atr * 0.5) * 4
 
-    stop_loss = round(stop_loss, 3)
-    calculated_backlash_from_advanced_atr = round(calculated_backlash_from_advanced_atr, 3)
-    sell_order = round(sell_order, 3)
-    take_profit_3_to_1 = round(take_profit_3_to_1, 3)
-    take_profit_4_to_1 = round(take_profit_4_to_1, 3)
+    stop_loss = round(stop_loss,20)
+    calculated_backlash_from_advanced_atr = round(calculated_backlash_from_advanced_atr,20)
+    sell_order = round(sell_order,20)
+    take_profit_3_to_1 = round(take_profit_3_to_1,20)
+    take_profit_4_to_1 = round(take_profit_4_to_1,20)
 
-    advanced_atr = round(advanced_atr, 3)
-    high_of_bsu = round(high_of_bsu, 3)
-    high_of_bpu1 = round(high_of_bpu1, 3)
-    high_of_bpu2 = round(high_of_bpu2, 3)
-    close_of_bpu2 = round(close_of_bpu2, 3)
+    advanced_atr = round(advanced_atr,20)
+    high_of_bsu = round(high_of_bsu,20)
+    high_of_bpu1 = round(high_of_bpu1,20)
+    high_of_bpu2 = round(high_of_bpu2,20)
+    close_of_bpu2 = round(close_of_bpu2,20)
 
 
     string_for_output=f"Инструмент = {stock_name} , модель = Отбой от ATL, ATH={ath}, ATR({advanced_atr_over_this_period})={advanced_atr}, люфт={calculated_backlash_from_advanced_atr}, допустимый_люфт={acceptable_backlash}, отложенный_ордер={sell_order}, расчетный_SL={stop_loss}, TP(3/1)={take_profit_3_to_1}, TP(4/1)={take_profit_4_to_1}, low_of_bsu={high_of_bsu}, low_of_bpu1={high_of_bpu1}, low_of_bpu2={high_of_bpu2}, close_of_bpu2={close_of_bpu2}, дата_бсу={timestamp_of_bsu_without_time}, дата_бпу1={timestamp_of_bpu1_without_time}, дата_бпу2={timestamp_of_bpu2_without_time}\n\n"
@@ -629,6 +634,17 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
             exchange = table_with_ohlcv_data_df.loc[0 , "exchange"]
             short_name = table_with_ohlcv_data_df.loc[0 , 'short_name']
 
+            try:
+                asset_type, maker_fee, taker_fee, url_of_trading_pair = \
+                    get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(
+                        table_with_ohlcv_data_df)
+
+                # do not short unshortable assets
+                if asset_type == 'spot':
+                    continue
+            except:
+                traceback.print_exc()
+
 
 
             # truncated_high_and_low_table_with_ohlcv_data_df[["high","low"]]=table_with_ohlcv_data_df[["high","low"]].round(decimals=2)
@@ -643,35 +659,37 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
             #truncate high and low to two decimal number
 
             table_with_ohlcv_data_df["high"] = \
-                table_with_ohlcv_data_df["high"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["high"].apply ( round , args = (20 ,) )
             table_with_ohlcv_data_df["low"] = \
-                table_with_ohlcv_data_df["low"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["low"].apply ( round , args = (20 ,) )
             table_with_ohlcv_data_df["open"] = \
-                table_with_ohlcv_data_df["open"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["open"].apply ( round , args = (20 ,) )
             table_with_ohlcv_data_df["close"] = \
-                table_with_ohlcv_data_df["close"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["close"].apply ( round , args = (20 ,) )
 
             initial_table_with_ohlcv_data_df = table_with_ohlcv_data_df.copy ()
             truncated_high_and_low_table_with_ohlcv_data_df = table_with_ohlcv_data_df.copy ()
 
             truncated_high_and_low_table_with_ohlcv_data_df["high"]=\
-                table_with_ohlcv_data_df["high"].apply(round,args=(6,))
+                table_with_ohlcv_data_df["high"].apply(round,args = (20 ,))
             truncated_high_and_low_table_with_ohlcv_data_df["low"] = \
-                table_with_ohlcv_data_df["low"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["low"].apply ( round , args = (20 ,) )
             truncated_high_and_low_table_with_ohlcv_data_df["open"] = \
-                table_with_ohlcv_data_df["open"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["open"].apply ( round , args = (20 ,) )
             truncated_high_and_low_table_with_ohlcv_data_df["close"] = \
-                table_with_ohlcv_data_df["close"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["close"].apply ( round , args = (20 ,) )
 
             print('table_with_ohlcv_data_df.loc[0,"close"]')
             print ( table_with_ohlcv_data_df.loc[0 , "close"] )
 
-            # round high and low to two decimal number
+            last_close_price = get_last_close_price_of_asset(table_with_ohlcv_data_df)
+            number_of_zeroes_in_price = count_zeros(last_close_price)
 
-            truncated_high_and_low_table_with_ohlcv_data_df["high"]=\
-                table_with_ohlcv_data_df["high"].apply(round,args=(6,))
+            # round high and low
+            truncated_high_and_low_table_with_ohlcv_data_df["high"] = \
+                table_with_ohlcv_data_df["high"].apply(round, args=(number_of_zeroes_in_price + 3,))
             truncated_high_and_low_table_with_ohlcv_data_df["low"] = \
-                table_with_ohlcv_data_df["low"].apply ( round , args = (2 ,) )
+                table_with_ohlcv_data_df["low"].apply(round, args=(number_of_zeroes_in_price + 3,))
 
             # print ( "after_table_with_ohlcv_data_df" )
             # print ( table_with_ohlcv_data_df )
@@ -793,8 +811,8 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
                 advanced_atr = calculate_advanced_atr ( advanced_atr_over_this_period ,
                                                         table_with_ohlcv_data_df ,
                                                         row_number_of_bpu1 )
-                atr=round(atr,6)
-                advanced_atr = round ( advanced_atr , 6 )
+                atr=round(atr,20)
+                advanced_atr = round ( advanced_atr ,20)
 
                 low_of_bsu = truncated_high_and_low_table_with_ohlcv_data_df_slice.loc[row_number_of_bsu , "low"]
                 low_of_bpu1 = truncated_high_and_low_table_with_ohlcv_data_df_slice.loc[row_number_of_bpu1 , "low"]
@@ -925,17 +943,17 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
                         take_profit_3_to_1 = sell_order - (advanced_atr * 0.5) * 3
                         take_profit_4_to_1 = sell_order - (advanced_atr * 0.5) * 4
 
-                        stop_loss = round(stop_loss, 3)
-                        calculated_backlash_from_advanced_atr = round(calculated_backlash_from_advanced_atr, 3)
-                        sell_order = round(sell_order, 3)
-                        take_profit_3_to_1 = round(take_profit_3_to_1, 3)
-                        take_profit_4_to_1 = round(take_profit_4_to_1, 3)
+                        stop_loss = round(stop_loss,20)
+                        calculated_backlash_from_advanced_atr = round(calculated_backlash_from_advanced_atr,20)
+                        sell_order = round(sell_order,20)
+                        take_profit_3_to_1 = round(take_profit_3_to_1,20)
+                        take_profit_4_to_1 = round(take_profit_4_to_1,20)
 
-                        advanced_atr = round(advanced_atr, 3)
-                        high_of_bsu = round(high_of_bsu, 3)
-                        high_of_bpu1 = round(high_of_bpu1, 3)
-                        high_of_bpu2 = round(high_of_bpu2, 3)
-                        close_of_bpu2 = round(close_of_bpu2, 3)
+                        advanced_atr = round(advanced_atr,20)
+                        high_of_bsu = round(high_of_bsu,20)
+                        high_of_bpu1 = round(high_of_bpu1,20)
+                        high_of_bpu2 = round(high_of_bpu2,20)
+                        close_of_bpu2 = round(close_of_bpu2,20)
 
 
                         df_with_level_atr_bpu_bsu_etc = pd.DataFrame ()
@@ -989,6 +1007,18 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
 
                         print("df_with_level_atr_bpu_bsu_etc")
                         print(df_with_level_atr_bpu_bsu_etc.to_string())
+
+                        try:
+                            asset_type, maker_fee, taker_fee, url_of_trading_pair = \
+                                get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(table_with_ohlcv_data_df)
+
+                            df_with_level_atr_bpu_bsu_etc["asset_type"] = asset_type
+                            df_with_level_atr_bpu_bsu_etc["maker_fee"] = maker_fee
+                            df_with_level_atr_bpu_bsu_etc["taker_fee"] = taker_fee
+                            df_with_level_atr_bpu_bsu_etc["url_of_trading_pair"] = url_of_trading_pair
+                        except:
+                            traceback.print_exc()
+
                         df_with_level_atr_bpu_bsu_etc.to_sql (
                             table_where_ticker_which_had_rebound_situations_from_ath_will_be ,
                             engine_for_db_where_levels_formed_by_rebound_level_will_be ,

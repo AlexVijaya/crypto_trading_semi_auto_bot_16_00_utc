@@ -17,11 +17,16 @@ from sqlalchemy import MetaData
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
-from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_ath_breakout
-from check_if_ath_or_atl_was_not_brken_over_long_periond_of_time import check_atl_breakout
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_ath_breakout
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_atl_breakout
 from count_leading_zeros_in_a_number import count_zeros
 
-
+def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
+    asset_type = ohlcv_data_df["asset_type"].iat[-1]
+    maker_fee = ohlcv_data_df["maker_fee"].iat[-1]
+    taker_fee = ohlcv_data_df["taker_fee"].iat[-1]
+    url_of_trading_pair = ohlcv_data_df["url_of_trading_pair"].iat[-1]
+    return asset_type,maker_fee,taker_fee,url_of_trading_pair
 def print_df_to_file(dataframe, subdirectory_name):
     series = dataframe.squeeze()
     # get today's date
@@ -697,6 +702,18 @@ def search_for_tickers_with_breakout_situations(db_where_ohlcv_data_for_stocks_i
             exchange = table_with_ohlcv_data_df.loc[0 , "exchange"]
             short_name = table_with_ohlcv_data_df.loc[0 , 'short_name']
 
+            try:
+                asset_type, maker_fee, taker_fee, url_of_trading_pair = \
+                    get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(
+                        table_with_ohlcv_data_df)
+
+                # do not short unshortable assets
+                if asset_type == 'spot':
+                    continue
+
+            except:
+                traceback.print_exc()
+
 
             # Select last 365*2 rows (last two years) of data
             last_two_years_of_data = table_with_ohlcv_data_df.tail(365 * 2)
@@ -761,7 +778,7 @@ def search_for_tickers_with_breakout_situations(db_where_ohlcv_data_for_stocks_i
             if last_two_years_of_data.tail(30)['volume'].min() < 750:
                 continue
 
-            if close_of_false_breakout_bar < 1 and last_two_years_of_data.tail(30)['volume'].min() < 100000:
+            if close_of_false_breakout_bar < 1 and last_two_years_of_data.tail(30)['volume'].min() < 1000:
                 continue
 
 
@@ -906,15 +923,15 @@ def search_for_tickers_with_breakout_situations(db_where_ohlcv_data_for_stocks_i
             distance_between_technical_stop_loss_and_sell_order_in_atr = \
                 distance_between_technical_stop_loss_and_sell_order / advanced_atr
             # round technical stop loss and take profit for ease of looking at
-            technical_stop_loss = round(technical_stop_loss, 3)
+            technical_stop_loss = round(technical_stop_loss,20)
             take_profit_when_stop_loss_is_technical_3_to_1 = \
-                round(take_profit_when_stop_loss_is_technical_3_to_1, 3)
+                round(take_profit_when_stop_loss_is_technical_3_to_1,20)
             take_profit_when_stop_loss_is_technical_4_to_1 = \
-                round(take_profit_when_stop_loss_is_technical_3_to_1, 3)
+                round(take_profit_when_stop_loss_is_technical_3_to_1,20)
             distance_between_technical_stop_loss_and_sell_order_in_atr = \
-                round(distance_between_technical_stop_loss_and_sell_order_in_atr, 3)
-            sell_order = round(sell_order, 3)
-            advanced_atr = round(advanced_atr, 3)
+                round(distance_between_technical_stop_loss_and_sell_order_in_atr,20)
+            sell_order = round(sell_order,20)
+            advanced_atr = round(advanced_atr,20)
 
 
             df_with_level_atr_bpu_bsu_etc = pd.DataFrame()
@@ -992,6 +1009,16 @@ def search_for_tickers_with_breakout_situations(db_where_ohlcv_data_for_stocks_i
             df_with_level_atr_bpu_bsu_etc.loc[
                 0, "row_number_of_false_breakout_bar"] = false_breakout_bar_row_number
 
+            try:
+                asset_type, maker_fee, taker_fee, url_of_trading_pair = \
+                    get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(table_with_ohlcv_data_df)
+
+                df_with_level_atr_bpu_bsu_etc["asset_type"] = asset_type
+                df_with_level_atr_bpu_bsu_etc["maker_fee"] = maker_fee
+                df_with_level_atr_bpu_bsu_etc["taker_fee"] = taker_fee
+                df_with_level_atr_bpu_bsu_etc["url_of_trading_pair"] = url_of_trading_pair
+            except:
+                traceback.print_exc()
 
             df_with_level_atr_bpu_bsu_etc.to_sql(
                 table_where_ticker_which_may_have_fast_breakout_situations_from_ath_will_be,
