@@ -1022,7 +1022,7 @@ def search_for_tickers_with_rebound_situations(db_where_ohlcv_data_for_stocks_is
         except:
             traceback.print_exc()
 
-    string_for_output = f"Список инструментов, в которых исторический минимум был подтвержден последним баром:\n" \
+    string_for_output = f"\nСписок инструментов, в которых исторический минимум был подтвержден последним баром:\n" \
                         f"{list_of_crypto_tickers_with_last_low_equal_to_atl_and_equal_to_limit_level}\n\n"
     # Use the function to create a text file with the text
     # in the subdirectory "current_rebound_breakout_and_false_breakout"

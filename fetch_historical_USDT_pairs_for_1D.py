@@ -332,9 +332,10 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                 if "UP/" in trading_pair or "DOWN/" in trading_pair or "BEAR/" in \
                         trading_pair or "BULL/" in trading_pair:
                     continue
-                if ("/USDT" in trading_pair) or ("/USDC" in trading_pair) \
-                        or( "/BUSD" in trading_pair) or ( "/BTC" in trading_pair) or\
-                        ( "/HT" in trading_pair)  :
+                # if ("/USDT" in trading_pair) or ("/USDC" in trading_pair) \
+                #         or( "/BUSD" in trading_pair) or ( "/BTC" in trading_pair) or\
+                #         ( "/HT" in trading_pair)  :
+                if "/USDT" in trading_pair:
                     print("usdt_pair1=", trading_pair)
                     new_counter = new_counter + 1
                     print("new_counter=",new_counter)
@@ -551,9 +552,9 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
 
 
 
-                    #если  в крипе мало данных , то ее не добавляем
-                    if len(data_df)<10:
-                        continue
+                    # #если  в крипе мало данных , то ее не добавляем
+                    # if len(data_df)<10:
+                    #     continue
 
                     # # slice last 30 days for volume calculation
                     # min_volume_over_these_many_last_days=30
@@ -577,8 +578,8 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     #         continue
 
                     # #проверить, что объем за последние n дней не меньше, чем 1 цены биткойна
-                    min_volume_over_these_many_last_days = 30
-                    min_volume_in_bitcoin=2
+                    min_volume_over_these_many_last_days = 7
+                    min_volume_in_bitcoin=4
                     asset_has_enough_volume=True
                     asset_has_enough_volume=check_volume(trading_pair,
                                                          min_volume_over_these_many_last_days,
@@ -865,7 +866,8 @@ def fetch_all_ohlcv_tables(timeframe,database_name,last_bitcoin_price):
 
 if __name__=="__main__":
     timeframe='1d'
-    last_bitcoin_price=get_real_time_bitcoin_price()
+    # last_bitcoin_price=get_real_time_bitcoin_price()
+    last_bitcoin_price=30000
     print("last_bitcoin_price")
     print(last_bitcoin_price)
     database_name="ohlcv_1d_data_for_usdt_pairs_1600"

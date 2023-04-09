@@ -20,6 +20,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_ath_breakout
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_atl_breakout
 from count_leading_zeros_in_a_number import count_zeros
+from get_info_from_load_markets import get_spread
 def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
     asset_type = ohlcv_data_df["asset_type"].iat[-1]
     maker_fee = ohlcv_data_df["maker_fee"].iat[-1]
@@ -707,8 +708,8 @@ def search_for_tickers_with_false_breakout_situations(db_where_ohlcv_data_for_st
                         table_with_ohlcv_data_df)
 
                 # do not short unshortable assets
-                if asset_type == 'spot':
-                    continue
+                # if asset_type == 'spot':
+ #                   continue
 
             except:
                 traceback.print_exc()
@@ -1051,10 +1052,10 @@ def search_for_tickers_with_false_breakout_situations(db_where_ohlcv_data_for_st
                 asset_type, maker_fee, taker_fee, url_of_trading_pair = \
                     get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(table_with_ohlcv_data_df)
 
-                df_with_level_atr_bpu_bsu_etc["asset_type"] = asset_type
-                df_with_level_atr_bpu_bsu_etc["maker_fee"] = maker_fee
-                df_with_level_atr_bpu_bsu_etc["taker_fee"] = taker_fee
-                df_with_level_atr_bpu_bsu_etc["url_of_trading_pair"] = url_of_trading_pair
+                df_with_level_atr_bpu_bsu_etc.loc[0,"asset_type"] = asset_type
+                df_with_level_atr_bpu_bsu_etc.loc[0,"maker_fee"] = maker_fee
+                df_with_level_atr_bpu_bsu_etc.loc[0,"taker_fee"] = taker_fee
+                df_with_level_atr_bpu_bsu_etc.loc[0,"url_of_trading_pair"] = url_of_trading_pair
             except:
                 traceback.print_exc()
 

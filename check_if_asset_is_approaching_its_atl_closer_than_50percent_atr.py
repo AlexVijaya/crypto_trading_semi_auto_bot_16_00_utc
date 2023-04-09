@@ -20,6 +20,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_ath_breakout
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_atl_breakout
 from count_leading_zeros_in_a_number import count_zeros
+from get_info_from_load_markets import get_spread
 
 
 def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
@@ -319,7 +320,7 @@ def check_if_asset_is_approaching_its_atl(advanced_atr_over_this_period,
             levels_formed_by_atl_df.at[counter - 1 , "ticker"] = stock_name
             levels_formed_by_atl_df.at[counter - 1 , "exchange"] = exchange
             levels_formed_by_atl_df.at[counter - 1 , "short_name"] = short_name
-            levels_formed_by_atl_df.loc[
+            levels_formed_by_atl_df.at[
                 counter - 1, "model"] = "РАССТОЯНИЕ ОТ CLOSE ДО ATL <50% ATR"
             levels_formed_by_atl_df.at[counter - 1 , "atl"] = all_time_low_in_stock
             levels_formed_by_atl_df.at[counter - 1, "advanced_atr"] = advanced_atr
@@ -343,17 +344,17 @@ def check_if_asset_is_approaching_its_atl(advanced_atr_over_this_period,
                 asset_type, maker_fee, taker_fee, url_of_trading_pair = \
                     get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(table_with_ohlcv_data_df)
 
-                levels_formed_by_atl_df["asset_type"] = asset_type
-                levels_formed_by_atl_df["maker_fee"] = maker_fee
-                levels_formed_by_atl_df["taker_fee"] = taker_fee
-                levels_formed_by_atl_df["url_of_trading_pair"] = url_of_trading_pair
+                levels_formed_by_atl_df.at[counter - 1,"asset_type"] = asset_type
+                levels_formed_by_atl_df.at[counter - 1,"maker_fee"] = maker_fee
+                levels_formed_by_atl_df.at[counter - 1,"taker_fee"] = taker_fee
+                levels_formed_by_atl_df.at[counter - 1,"url_of_trading_pair"] = url_of_trading_pair
             except:
                 traceback.print_exc()
 
 
     levels_formed_by_atl_df.reset_index(inplace = True)
     string_for_output = f"Список инструментов, в которых расстояние от " \
-                        f"цены закрытия до цены исторического минимума <50% ATR({advanced_atr_over_this_period}):\n\n" \
+                        f"цены закрытия до цены исторического минимума <50% ATR({advanced_atr_over_this_period}):\n" \
                         f"{list_of_assets_with_last_close_close_to_atl}"
 
     # Use the function to create a text file with the text
