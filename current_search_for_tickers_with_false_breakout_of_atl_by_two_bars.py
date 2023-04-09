@@ -741,10 +741,12 @@ def search_for_tickers_with_false_breakout_situations(db_where_ohlcv_data_for_st
                 pd.read_sql_query(f'''select * from "{stock_name}"''',
                                   engine_for_ohlcv_data_for_stocks)
 
-            # print("table_with_ohlcv_data_df.index")
-            # print(table_with_ohlcv_data_df.index)
-            # print("list(table_with_ohlcv_data_df.columns)")
-            # print(list(table_with_ohlcv_data_df.columns))
+            # number_of_available_days
+            number_of_available_days = np.nan
+            try:
+                number_of_available_days = len(table_with_ohlcv_data_df)
+            except:
+                traceback.print_exc()
 
             if table_with_ohlcv_data_df.empty:
                 continue

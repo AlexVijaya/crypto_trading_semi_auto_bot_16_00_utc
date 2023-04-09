@@ -253,6 +253,15 @@ def check_if_asset_is_approaching_its_ath(atr_over_this_period,
             get_all_time_high_from_ohlcv_table ( engine_for_ohlcv_data_for_stocks ,
                                             stock_name )
 
+
+
+        # number_of_available_days
+        number_of_available_days = np.nan
+        try:
+            number_of_available_days = len(table_with_ohlcv_data_df)
+        except:
+            traceback.print_exc()
+
         calculate_volume_over_this_period = 30
         min_volume_over_n_days = min(table_with_ohlcv_data_df["volume"].tail(calculate_volume_over_this_period))
         print("min_volume_over_n_days")

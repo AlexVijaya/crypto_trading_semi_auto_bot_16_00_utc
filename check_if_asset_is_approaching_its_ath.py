@@ -202,6 +202,14 @@ def check_if_asset_is_approaching_its_ath(percentage_between_ath_and_closing_pri
             get_all_time_high_from_ohlcv_table ( engine_for_ohlcv_data_for_stocks ,
                                             stock_name )
 
+
+        # number_of_available_days
+        number_of_available_days = np.nan
+        try:
+            number_of_available_days = len(table_with_ohlcv_data_df)
+        except:
+            traceback.print_exc()
+
         if count_only_round_ath==True:
             level_is_round_bool=find_if_level_is_round ( all_time_high_in_stock )
             if not level_is_round_bool:

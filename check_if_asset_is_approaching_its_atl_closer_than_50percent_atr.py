@@ -253,6 +253,13 @@ def check_if_asset_is_approaching_its_atl(advanced_atr_over_this_period,
             get_all_time_low_from_ohlcv_table ( engine_for_ohlcv_data_for_stocks ,
                                             stock_name )
 
+        # number_of_available_days
+        number_of_available_days = np.nan
+        try:
+            number_of_available_days = len(table_with_ohlcv_data_df)
+        except:
+            traceback.print_exc()
+
         print("table_with_ohlcv_data_df")
         print(table_with_ohlcv_data_df.tail(10).to_string())
 
