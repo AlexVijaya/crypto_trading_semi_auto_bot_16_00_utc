@@ -20,7 +20,8 @@ from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_ath_breakout
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_atl_breakout
-
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time2 import fill_df_with_info_if_atl_was_broken_on_other_exchanges
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time2 import fill_df_with_info_if_ath_was_broken_on_other_exchanges
 
 def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
     asset_type = ohlcv_data_df["asset_type"].iat[-1]
@@ -62,7 +63,7 @@ def find_if_level_is_round(level):
             return level_is_round
 
 
-def connect_to_postres_db_without_deleting_it_first(database):
+def connect_to_postgres_db_without_deleting_it_first(database):
     dialect = db_config.dialect
     driver = db_config.driver
     password = db_config.password
@@ -120,7 +121,7 @@ from sqlalchemy import text
 
 def drop_table(table_name, engine):
     conn = engine.connect()
-    query = text(f"DROP TABLE IF EXISTS {table_name}")
+    query = text(f'''DROP TABLE IF EXISTS "{table_name}"''')
     conn.execute(query)
     conn.close()
 
@@ -182,14 +183,50 @@ def check_if_asset_is_approaching_its_ath(percentage_between_ath_and_closing_pri
 
     engine_for_ohlcv_data_for_stocks , \
     connection_to_ohlcv_data_for_stocks = \
-        connect_to_postres_db_without_deleting_it_first ( db_where_ohlcv_data_for_stocks_is_stored )
+        connect_to_postgres_db_without_deleting_it_first ( db_where_ohlcv_data_for_stocks_is_stored )
 
     engine_for_db_where_levels_formed_by_ath_will_be , \
     connection_to_db_where_levels_formed_by_ath_will_be = \
-        connect_to_postres_db_without_deleting_it_first ( db_where_levels_formed_by_ath_will_be )
+        connect_to_postgres_db_without_deleting_it_first ( db_where_levels_formed_by_ath_will_be )
 
     drop_table ( table_where_levels_formed_by_ath_will_be ,
                  engine_for_db_where_levels_formed_by_ath_will_be )
+
+    ##########################################################
+    db_where_ohlcv_data_for_stocks_is_stored_0000 = np.nan
+    db_where_ohlcv_data_for_stocks_is_stored_1600 = np.nan
+    engine_for_ohlcv_data_for_stocks_0000 = np.nan
+    engine_for_ohlcv_data_for_stocks_1600 = np.nan
+    list_of_tables_in_ohlcv_db_0000 = np.nan
+    try:
+        #######################################################################################
+        ###################################################################################
+        db_where_ohlcv_data_for_stocks_is_stored_0000 = "ohlcv_1d_data_for_usdt_pairs_0000"
+        db_where_ohlcv_data_for_stocks_is_stored_1600 = db_where_ohlcv_data_for_stocks_is_stored
+        engine_for_ohlcv_data_for_stocks_1600, \
+            connection_to_ohlcv_data_for_stocks_1600 = \
+            connect_to_postgres_db_without_deleting_it_first(db_where_ohlcv_data_for_stocks_is_stored_1600)
+
+        engine_for_ohlcv_data_for_stocks_0000, \
+            connection_to_ohlcv_data_for_stocks_0000 = \
+            connect_to_postgres_db_without_deleting_it_first(db_where_ohlcv_data_for_stocks_is_stored_0000)
+        ###################################################################################
+        #######################################################################################
+
+        ###################################################################################
+        # ---------------------------------------------------------------------------
+        list_of_tables_in_ohlcv_db_0000 = \
+            get_list_of_tables_in_db(engine_for_ohlcv_data_for_stocks_0000)
+
+        list_of_tables_in_ohlcv_db_1600 = \
+            get_list_of_tables_in_db(engine_for_ohlcv_data_for_stocks_1600)
+
+        print('list_of_tables_in_ohlcv_db_0000')
+        print(list_of_tables_in_ohlcv_db_0000)
+        # -----------------------------------------------------------------------------
+        ###################################################################################
+    except:
+        traceback.print_exc()
 
     list_of_tables_in_ohlcv_db=\
         get_list_of_tables_in_db ( engine_for_ohlcv_data_for_stocks )
@@ -266,6 +303,23 @@ def check_if_asset_is_approaching_its_ath(percentage_between_ath_and_closing_pri
                 levels_formed_by_ath_df.at[counter - 1, "maker_fee"] = maker_fee
                 levels_formed_by_ath_df.at[counter - 1, "taker_fee"] = taker_fee
                 levels_formed_by_ath_df.at[counter - 1, "url_of_trading_pair"] = url_of_trading_pair
+                levels_formed_by_ath_df.at[counter - 1, "number_of_available_bars"] = number_of_available_days
+            except:
+                traceback.print_exc()
+
+            try:
+                #############################################
+                # add info to dataframe about whether level was broken on other exchanges
+                levels_formed_by_ath_df = fill_df_with_info_if_ath_was_broken_on_other_exchanges(stock_name,
+                                                                                                 db_where_ohlcv_data_for_stocks_is_stored_1600,
+                                                                                                 db_where_ohlcv_data_for_stocks_is_stored_0000,
+                                                                                                 table_with_ohlcv_data_df,
+                                                                                                 engine_for_ohlcv_data_for_stocks_1600,
+                                                                                                 engine_for_ohlcv_data_for_stocks_0000,
+                                                                                                 all_time_high_in_stock,
+                                                                                                 list_of_tables_in_ohlcv_db_0000,
+                                                                                                 levels_formed_by_ath_df,
+                                                                                                 counter - 1)
             except:
                 traceback.print_exc()
 

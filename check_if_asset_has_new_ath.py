@@ -1,3 +1,5 @@
+from count_leading_zeros_in_a_number import count_zeros
+from get_info_from_load_markets import get_spread
 import pandas as pd
 import os
 import time
@@ -18,8 +20,6 @@ from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.declarative import declarative_base
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_ath_breakout
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_atl_breakout
-from count_leading_zeros_in_a_number import count_zeros
-from get_info_from_load_markets import get_spread
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time2 import fill_df_with_info_if_atl_was_broken_on_other_exchanges
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time2 import fill_df_with_info_if_ath_was_broken_on_other_exchanges
 
@@ -29,6 +29,7 @@ def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
     taker_fee = ohlcv_data_df["taker_fee"].iat[-1]
     url_of_trading_pair = ohlcv_data_df["url_of_trading_pair"].iat[-1]
     return asset_type,maker_fee,taker_fee,url_of_trading_pair
+
 def find_if_level_is_round(level):
     level = str ( level )
     level_is_round=False
@@ -96,7 +97,15 @@ def get_list_of_tables_in_db(engine_for_ohlcv_data_for_stocks):
 
     return list_of_tables_in_db
 
-def get_all_time_low_from_ohlcv_table(engine_for_ohlcv_data_for_stocks,
+def get_last_high_price_of_asset(ohlcv_table_df):
+    last_high_price=ohlcv_table_df["high"].iat[-1]
+    return last_high_price
+
+def get_second_last_high_price_of_asset(ohlcv_table_df):
+    second_last_high_price=ohlcv_table_df["high"].iat[-2]
+    return second_last_high_price
+
+def get_all_time_high_from_ohlcv_table(engine_for_ohlcv_data_for_stocks,
                                       table_with_ohlcv_table):
     table_with_ohlcv_data_df = \
         pd.read_sql_query ( f'''select * from "{table_with_ohlcv_table}"''' ,
@@ -104,11 +113,11 @@ def get_all_time_low_from_ohlcv_table(engine_for_ohlcv_data_for_stocks,
     print("table_with_ohlcv_data_df")
     print ( table_with_ohlcv_data_df )
 
-    all_time_low_in_stock=table_with_ohlcv_data_df["low"].min()
-    print ( "all_time_low_in_stock" )
-    print ( all_time_low_in_stock )
+    all_time_high_in_stock=table_with_ohlcv_data_df["high"].max()
+    print ( "all_time_high_in_stock" )
+    print ( all_time_high_in_stock )
 
-    return all_time_low_in_stock, table_with_ohlcv_data_df
+    return all_time_high_in_stock, table_with_ohlcv_data_df
 
 # def drop_table(table_name,engine):
 #     engine.execute (
@@ -125,6 +134,9 @@ def drop_table(table_name, engine):
 def get_last_close_price_of_asset(ohlcv_table_df):
     last_close_price=ohlcv_table_df["close"].iat[-1]
     return last_close_price
+
+import os
+import datetime
 
 def create_text_file_and_writ_text_to_it(text, subdirectory_name):
   # Declare the path to the current directory
@@ -159,33 +171,32 @@ def create_text_file_and_writ_text_to_it(text, subdirectory_name):
 
 
 
-
-def check_if_asset_is_approaching_its_atl(percentage_between_atl_and_closing_price,
+def check_if_asset_is_approaching_its_ath(percentage_between_ath_and_closing_price,
                                           db_where_ohlcv_data_for_stocks_is_stored,
-                                          count_only_round_atl,
-                                          db_where_levels_formed_by_atl_will_be,
-                                          table_where_levels_formed_by_atl_will_be):
+                                          count_only_round_ath,
+                                          db_where_levels_formed_by_ath_will_be,
+                                          table_where_levels_formed_by_ath_will_be):
 
-    levels_formed_by_atl_df=pd.DataFrame(columns = ["ticker",
-                                                    "atl",
+    levels_formed_by_ath_df=pd.DataFrame(columns = ["ticker",
+                                                    "ath",
                                                     "exchange",
                                                     "short_name",
                                                     "timestamp_1",
                                                     "timestamp_2",
                                                     "timestamp_3"])
-    list_of_assets_with_last_close_close_to_atl=[]
+    list_of_assets_with_last_close_close_to_ath=[]
 
 
     engine_for_ohlcv_data_for_stocks , \
     connection_to_ohlcv_data_for_stocks = \
         connect_to_postgres_db_without_deleting_it_first ( db_where_ohlcv_data_for_stocks_is_stored )
 
-    engine_for_db_where_levels_formed_by_atl_will_be , \
-    connection_to_db_where_levels_formed_by_atl_will_be = \
-        connect_to_postgres_db_without_deleting_it_first ( db_where_levels_formed_by_atl_will_be )
+    engine_for_db_where_levels_formed_by_ath_will_be , \
+    connection_to_db_where_levels_formed_by_ath_will_be = \
+        connect_to_postgres_db_without_deleting_it_first ( db_where_levels_formed_by_ath_will_be )
 
-    drop_table ( table_where_levels_formed_by_atl_will_be ,
-                 engine_for_db_where_levels_formed_by_atl_will_be )
+    drop_table ( table_where_levels_formed_by_ath_will_be ,
+                 engine_for_db_where_levels_formed_by_ath_will_be )
 
     ##########################################################
     db_where_ohlcv_data_for_stocks_is_stored_0000 = np.nan
@@ -230,8 +241,8 @@ def check_if_asset_is_approaching_its_atl(percentage_between_atl_and_closing_pri
         counter=counter+1
         print ( f'{stock_name} is'
                 f' number {counter} out of {len ( list_of_tables_in_ohlcv_db )}\n' )
-        all_time_low_in_stock, table_with_ohlcv_data_df=\
-            get_all_time_low_from_ohlcv_table ( engine_for_ohlcv_data_for_stocks ,
+        all_time_high_in_stock, table_with_ohlcv_data_df=\
+            get_all_time_high_from_ohlcv_table ( engine_for_ohlcv_data_for_stocks ,
                                             stock_name )
 
 
@@ -242,110 +253,130 @@ def check_if_asset_is_approaching_its_atl(percentage_between_atl_and_closing_pri
         except:
             traceback.print_exc()
 
-        if count_only_round_atl==True:
-            level_is_round_bool=find_if_level_is_round ( all_time_low_in_stock )
+        if count_only_round_ath==True:
+            level_is_round_bool=find_if_level_is_round ( all_time_high_in_stock )
             if not level_is_round_bool:
-                print(f"in {stock_name} level={all_time_low_in_stock} is not round and is ATL")
+                print(f"in {stock_name} level={all_time_high_in_stock} is not round and is ATL")
                 continue
-
-        last_close_price = np.nan
+        last_close_price=np.nan
         try:
-            last_close_price = get_last_close_price_of_asset(table_with_ohlcv_data_df)
+            last_close_price=get_last_close_price_of_asset ( table_with_ohlcv_data_df )
         except:
             traceback.print_exc()
         print("last_close_price")
         print ( last_close_price)
-        distance_in_percent_to_atl_from_close_price=\
-            (last_close_price-all_time_low_in_stock)/last_close_price
-        if distance_in_percent_to_atl_from_close_price <= percentage_between_atl_and_closing_price/100.0:
-            print(f"last closing price={last_close_price} is"
-                  f" within {percentage_between_atl_and_closing_price}% range to atl={all_time_low_in_stock}")
-            list_of_assets_with_last_close_close_to_atl.append(stock_name)
-            print("list_of_assets_with_last_close_close_to_atl")
-            print ( list_of_assets_with_last_close_close_to_atl )
-            df_where_low_equals_atl=\
-                table_with_ohlcv_data_df[table_with_ohlcv_data_df["low"]==all_time_low_in_stock]
-            print ( "df_where_low_equals_atl" )
-            print ( df_where_low_equals_atl )
+
+        last_high_price = np.nan
+        try:
+            last_high_price = get_last_high_price_of_asset(table_with_ohlcv_data_df)
+        except:
+            traceback.print_exc()
+        print("last_high_price")
+        print(last_high_price)
+
+        second_last_high_price = np.nan
+        try:
+            second_last_high_price = get_second_last_high_price_of_asset(table_with_ohlcv_data_df)
+        except:
+            traceback.print_exc()
+        print("second_last_high_price")
+        print(second_last_high_price)
+
+
+        # distance_in_percent_to_ath_from_close_price=\
+        #     (all_time_high_in_stock-last_close_price)/all_time_high_in_stock
+        if all_time_high_in_stock==last_high_price or all_time_high_in_stock==second_last_high_price:
+            # print(f"last closing price={last_close_price} is"
+            #       f" within {percentage_between_ath_and_closing_price}% range to ath={all_time_high_in_stock}")
+            list_of_assets_with_last_close_close_to_ath.append(stock_name)
+            print("list_of_assets_with_last_close_close_to_ath")
+            print ( list_of_assets_with_last_close_close_to_ath )
+            df_where_high_equals_ath=\
+                table_with_ohlcv_data_df[table_with_ohlcv_data_df["high"]==all_time_high_in_stock]
+            print ( "df_where_high_equals_ath" )
+            print ( df_where_high_equals_ath )
             exchange=table_with_ohlcv_data_df["exchange"].iat[0]
             short_name = table_with_ohlcv_data_df["short_name"].iat[0]
 
 
-            levels_formed_by_atl_df.at[counter - 1 , "ticker"] = stock_name
-            levels_formed_by_atl_df.at[counter - 1 , "exchange"] = exchange
-            levels_formed_by_atl_df.at[counter - 1 , "short_name"] = short_name
-            levels_formed_by_atl_df.at[
-                counter - 1, "model"] = "РАССТОЯНИЕ ОТ CLOSE ДО ATL <10%"
-            levels_formed_by_atl_df.at[counter - 1 , "atl"] = all_time_low_in_stock
-            for number_of_timestamp,timestamp_of_atl in enumerate(df_where_low_equals_atl.loc[:,"Timestamp"]):
+            levels_formed_by_ath_df.at[counter - 1 , "ticker"] = stock_name
+            levels_formed_by_ath_df.at[counter - 1 , "exchange"] = exchange
+            levels_formed_by_ath_df.at[counter - 1 , "short_name"] = short_name
+            levels_formed_by_ath_df.at[
+                counter - 1, "model"] = "Новый All Time High"
+            levels_formed_by_ath_df.at[counter - 1 , "ath"] = all_time_high_in_stock
+            for number_of_timestamp,timestamp_of_ath in enumerate(df_where_high_equals_ath.loc[:,"Timestamp"]):
                 print("number_of_timestamp")
                 print ( number_of_timestamp )
-                print ( "timestamp_of_atl" )
-                print ( timestamp_of_atl )
-                levels_formed_by_atl_df.at[counter - 1 , f"timestamp_{number_of_timestamp+1}"]=\
-                    timestamp_of_atl
+                print ( "timestamp_of_ath" )
+                print ( timestamp_of_ath )
+                levels_formed_by_ath_df.at[counter - 1 , f"timestamp_{number_of_timestamp+1}"]=\
+                    timestamp_of_ath
 
 
 
 
 
-            print("levels_formed_by_atl_df")
-            print ( levels_formed_by_atl_df )
+            print("levels_formed_by_ath_df")
+            print ( levels_formed_by_ath_df )
             try:
                 asset_type, maker_fee, taker_fee, url_of_trading_pair = \
                     get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(table_with_ohlcv_data_df)
 
-                levels_formed_by_atl_df.at[counter - 1, "asset_type"] = asset_type
-                levels_formed_by_atl_df.at[counter - 1, "maker_fee"] = maker_fee
-                levels_formed_by_atl_df.at[counter - 1, "taker_fee"] = taker_fee
-                levels_formed_by_atl_df.at[counter - 1, "url_of_trading_pair"] = url_of_trading_pair
-                levels_formed_by_atl_df.at[counter - 1, "number_of_available_bars"] = number_of_available_days
+                levels_formed_by_ath_df.at[counter - 1, "asset_type"] = asset_type
+                levels_formed_by_ath_df.at[counter - 1, "maker_fee"] = maker_fee
+                levels_formed_by_ath_df.at[counter - 1, "taker_fee"] = taker_fee
+                levels_formed_by_ath_df.at[counter - 1, "url_of_trading_pair"] = url_of_trading_pair
+                levels_formed_by_ath_df.at[counter - 1, "number_of_available_bars"] = number_of_available_days
             except:
                 traceback.print_exc()
 
-                #####################################################################
-                ################################################
-                # add info to dataframe about whether level was broken on other exchanges
-                try:
-                    levels_formed_by_atl_df = fill_df_with_info_if_atl_was_broken_on_other_exchanges(stock_name,
-                                                                                                     db_where_ohlcv_data_for_stocks_is_stored_1600,
-                                                                                                     db_where_ohlcv_data_for_stocks_is_stored_0000,
-                                                                                                     table_with_ohlcv_data_df,
-                                                                                                     engine_for_ohlcv_data_for_stocks_1600,
-                                                                                                     engine_for_ohlcv_data_for_stocks_0000,
-                                                                                                     all_time_low_in_stock,
-                                                                                                     list_of_tables_in_ohlcv_db_0000,
-                                                                                                     levels_formed_by_atl_df,
-                                                                                                     counter - 1)
-                except:
-                    traceback.print_exc()
+            try:
+                levels_formed_by_ath_df = fill_df_with_info_if_ath_was_broken_on_other_exchanges(stock_name,
+                                                                                                 db_where_ohlcv_data_for_stocks_is_stored_1600,
+                                                                                                 db_where_ohlcv_data_for_stocks_is_stored_0000,
+                                                                                                 table_with_ohlcv_data_df,
+                                                                                                 engine_for_ohlcv_data_for_stocks_1600,
+                                                                                                 engine_for_ohlcv_data_for_stocks_0000,
+                                                                                                 all_time_high_in_stock,
+                                                                                                 list_of_tables_in_ohlcv_db_0000,
+                                                                                                 levels_formed_by_ath_df,
+                                                                                                 counter - 1)
+            except:
+                traceback.print_exc()
 
 
-    levels_formed_by_atl_df.reset_index(inplace = True)
-    string_for_output = f"\nСписок инструментов, в которых расстояние от " \
-                        "цены закрытия до цены исторического минимума <10%:\n" \
-                        f"{list_of_assets_with_last_close_close_to_atl}\n"
 
+    levels_formed_by_ath_df.reset_index(inplace = True)
+    string_for_output=f"\nСписок инструментов, в которых New All Time High за последние 2 дня:\n" \
+                      f"{list_of_assets_with_last_close_close_to_ath}\n"
     # Use the function to create a text file with the text
     # in the subdirectory "current_rebound_breakout_and_false_breakout"
     create_text_file_and_writ_text_to_it(string_for_output, 'current_rebound_breakout_and_false_breakout')
-    levels_formed_by_atl_df.to_sql(table_where_levels_formed_by_atl_will_be,
-                                   engine_for_db_where_levels_formed_by_atl_will_be,
-                                   if_exists = 'replace')
-    print ( "levels_formed_by_atl_df" )
-    print ( levels_formed_by_atl_df )
 
+
+
+    levels_formed_by_ath_df.to_sql(table_where_levels_formed_by_ath_will_be,
+                                   engine_for_db_where_levels_formed_by_ath_will_be,
+                                   if_exists = 'replace')
+    print ( "levels_formed_by_ath_df" )
+    print ( levels_formed_by_ath_df )
+
+
+
+
+    pass
 if __name__=="__main__":
     db_where_ohlcv_data_for_stocks_is_stored="ohlcv_1d_data_for_usdt_pairs_1600"
-    count_only_round_atl=False
-    db_where_levels_formed_by_atl_will_be="levels_formed_by_highs_and_lows_for_cryptos_1600"
-    table_where_levels_formed_by_atl_will_be = "current_asset_approaches_its_atl"
+    count_only_round_ath=False
+    db_where_levels_formed_by_ath_will_be="levels_formed_by_highs_and_lows_for_cryptos_1600"
+    table_where_levels_formed_by_ath_will_be = "current_asset_had_ath_within_two_last_days_period"
 
-    if count_only_round_atl:
-        db_where_levels_formed_by_atl_will_be="round_levels_formed_by_highs_and_lows_for_cryptos_1600"
-    percentage_between_atl_and_closing_price=10
-    check_if_asset_is_approaching_its_atl(percentage_between_atl_and_closing_price,
+    if count_only_round_ath:
+        db_where_levels_formed_by_ath_will_be="round_levels_formed_by_highs_and_lows_for_cryptos_1600"
+    percentage_between_ath_and_closing_price=10
+    check_if_asset_is_approaching_its_ath(percentage_between_ath_and_closing_price,
                                               db_where_ohlcv_data_for_stocks_is_stored,
-                                                count_only_round_atl,
-                                              db_where_levels_formed_by_atl_will_be,
-                                              table_where_levels_formed_by_atl_will_be)
+                                              count_only_round_ath,
+                                              db_where_levels_formed_by_ath_will_be,
+                                              table_where_levels_formed_by_ath_will_be)

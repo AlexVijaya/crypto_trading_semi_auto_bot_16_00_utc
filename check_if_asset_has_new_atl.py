@@ -126,6 +126,14 @@ def get_last_close_price_of_asset(ohlcv_table_df):
     last_close_price=ohlcv_table_df["close"].iat[-1]
     return last_close_price
 
+def get_last_low_price_of_asset(ohlcv_table_df):
+    last_low_price=ohlcv_table_df["low"].iat[-1]
+    return last_low_price
+
+def get_second_last_low_price_of_asset(ohlcv_table_df):
+    second_last_low_price=ohlcv_table_df["low"].iat[-2]
+    return second_last_low_price
+
 def create_text_file_and_writ_text_to_it(text, subdirectory_name):
   # Declare the path to the current directory
   current_directory = os.getcwd()
@@ -197,7 +205,7 @@ def check_if_asset_is_approaching_its_atl(percentage_between_atl_and_closing_pri
         #######################################################################################
         ###################################################################################
         db_where_ohlcv_data_for_stocks_is_stored_0000 = "ohlcv_1d_data_for_usdt_pairs_0000"
-        db_where_ohlcv_data_for_stocks_is_stored_1600 = db_where_ohlcv_data_for_stocks_is_stored
+        db_where_ohlcv_data_for_stocks_is_stored_1600=db_where_ohlcv_data_for_stocks_is_stored
         engine_for_ohlcv_data_for_stocks_1600, \
             connection_to_ohlcv_data_for_stocks_1600 = \
             connect_to_postgres_db_without_deleting_it_first(db_where_ohlcv_data_for_stocks_is_stored_1600)
@@ -255,11 +263,31 @@ def check_if_asset_is_approaching_its_atl(percentage_between_atl_and_closing_pri
             traceback.print_exc()
         print("last_close_price")
         print ( last_close_price)
-        distance_in_percent_to_atl_from_close_price=\
-            (last_close_price-all_time_low_in_stock)/last_close_price
-        if distance_in_percent_to_atl_from_close_price <= percentage_between_atl_and_closing_price/100.0:
-            print(f"last closing price={last_close_price} is"
-                  f" within {percentage_between_atl_and_closing_price}% range to atl={all_time_low_in_stock}")
+
+        last_low_price = np.nan
+        try:
+            last_low_price = get_last_low_price_of_asset(table_with_ohlcv_data_df)
+        except:
+            traceback.print_exc()
+        print("last_low_price")
+        print(last_low_price)
+
+        second_last_low_price = np.nan
+        try:
+            second_last_low_price = get_second_last_low_price_of_asset(table_with_ohlcv_data_df)
+        except:
+            traceback.print_exc()
+        print("second_last_low_price")
+        print(second_last_low_price)
+
+
+
+
+        # distance_in_percent_to_atl_from_close_price=\
+        #     (last_close_price-all_time_low_in_stock)/last_close_price
+        if all_time_low_in_stock==last_low_price or all_time_low_in_stock==second_last_low_price:
+            # print(f"last closing price={last_close_price} is"
+            #       f" within {percentage_between_atl_and_closing_price}% range to atl={all_time_low_in_stock}")
             list_of_assets_with_last_close_close_to_atl.append(stock_name)
             print("list_of_assets_with_last_close_close_to_atl")
             print ( list_of_assets_with_last_close_close_to_atl )
@@ -275,7 +303,7 @@ def check_if_asset_is_approaching_its_atl(percentage_between_atl_and_closing_pri
             levels_formed_by_atl_df.at[counter - 1 , "exchange"] = exchange
             levels_formed_by_atl_df.at[counter - 1 , "short_name"] = short_name
             levels_formed_by_atl_df.at[
-                counter - 1, "model"] = "РАССТОЯНИЕ ОТ CLOSE ДО ATL <10%"
+                counter - 1, "model"] = "Новый All Time Low"
             levels_formed_by_atl_df.at[counter - 1 , "atl"] = all_time_low_in_stock
             for number_of_timestamp,timestamp_of_atl in enumerate(df_where_low_equals_atl.loc[:,"Timestamp"]):
                 print("number_of_timestamp")
@@ -303,27 +331,24 @@ def check_if_asset_is_approaching_its_atl(percentage_between_atl_and_closing_pri
             except:
                 traceback.print_exc()
 
-                #####################################################################
-                ################################################
-                # add info to dataframe about whether level was broken on other exchanges
-                try:
-                    levels_formed_by_atl_df = fill_df_with_info_if_atl_was_broken_on_other_exchanges(stock_name,
-                                                                                                     db_where_ohlcv_data_for_stocks_is_stored_1600,
-                                                                                                     db_where_ohlcv_data_for_stocks_is_stored_0000,
-                                                                                                     table_with_ohlcv_data_df,
-                                                                                                     engine_for_ohlcv_data_for_stocks_1600,
-                                                                                                     engine_for_ohlcv_data_for_stocks_0000,
-                                                                                                     all_time_low_in_stock,
-                                                                                                     list_of_tables_in_ohlcv_db_0000,
-                                                                                                     levels_formed_by_atl_df,
-                                                                                                     counter - 1)
-                except:
-                    traceback.print_exc()
-
+            #####################################################################
+            ################################################
+            try:
+                levels_formed_by_atl_df = fill_df_with_info_if_atl_was_broken_on_other_exchanges(stock_name,
+                                                                                                 db_where_ohlcv_data_for_stocks_is_stored_1600,
+                                                                                                 db_where_ohlcv_data_for_stocks_is_stored_0000,
+                                                                                                 table_with_ohlcv_data_df,
+                                                                                                 engine_for_ohlcv_data_for_stocks_1600,
+                                                                                                 engine_for_ohlcv_data_for_stocks_0000,
+                                                                                                 all_time_low_in_stock,
+                                                                                                 list_of_tables_in_ohlcv_db_0000,
+                                                                                                 levels_formed_by_atl_df,
+                                                                                                 counter - 1)
+            except:
+                traceback.print_exc()
 
     levels_formed_by_atl_df.reset_index(inplace = True)
-    string_for_output = f"\nСписок инструментов, в которых расстояние от " \
-                        "цены закрытия до цены исторического минимума <10%:\n" \
+    string_for_output = f"\nСписок инструментов, в которых New All Time Low за последние 2 дня:\n" \
                         f"{list_of_assets_with_last_close_close_to_atl}\n"
 
     # Use the function to create a text file with the text
@@ -339,7 +364,7 @@ if __name__=="__main__":
     db_where_ohlcv_data_for_stocks_is_stored="ohlcv_1d_data_for_usdt_pairs_1600"
     count_only_round_atl=False
     db_where_levels_formed_by_atl_will_be="levels_formed_by_highs_and_lows_for_cryptos_1600"
-    table_where_levels_formed_by_atl_will_be = "current_asset_approaches_its_atl"
+    table_where_levels_formed_by_atl_will_be = "current_asset_had_atl_within_two_last_days_period"
 
     if count_only_round_atl:
         db_where_levels_formed_by_atl_will_be="round_levels_formed_by_highs_and_lows_for_cryptos_1600"

@@ -22,15 +22,41 @@ from sqlalchemy_utils import create_database,database_exists
 from pytz import timezone
 from verify_that_asset_has_enough_volume import check_volume
 from get_info_from_load_markets import get_limit_of_daily_candles_original_limits
+
+
+
+def is_pair_active(ohlcv_data_several_last_rows_df,last_timestamp_in_df, timeframe, trading_pair, exchange):
+    current_timestamp = time.time()
+
+    timeframe_in_seconds = convert_string_timeframe_into_seconds(timeframe)
+    print("current_timestamp")
+    print(current_timestamp)
+    print("last_timestamp_in_df")
+    print(last_timestamp_in_df)
+    print("abs(current_timestamp - last_timestamp_in_df)")
+    print(abs(current_timestamp - last_timestamp_in_df))
+    print("timeframe_in_seconds")
+    print(timeframe_in_seconds)
+
+    if abs(current_timestamp - last_timestamp_in_df) < (timeframe_in_seconds):
+        return True
+    else:
+        print(f"inactive trading pair {trading_pair} on {exchange}")
+        return False
 def get_last_index_column_value_from_ohlcv_table(ohlcv_data_df):
     last_index = ohlcv_data_df["index"].iat[-1]
     return last_index
 def drop_table(table_name, engine):
-    conn = engine.connect()
-    query = text(f"DROP TABLE IF EXISTS {table_name}")
-    conn.execute(query)
-    conn.close()
-def connect_to_postres_db_with_deleting_it_first(database):
+    try:
+        conn = engine.connect()
+        query = text(f'''DROP TABLE IF EXISTS "{table_name}"''')
+        conn.execute(query)
+        conn.close()
+    except:
+        traceback.print_exc()
+
+
+def connect_to_postgres_db_with_deleting_it_first(database):
     dialect = db_config.dialect
     driver = db_config.driver
     password = db_config.password
@@ -299,6 +325,8 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     last_index = get_last_index_column_value_from_ohlcv_table(table_with_ohlcv_data_df)
                     engine.execute(f'''DELETE FROM public."{string_for_comparison_pair_plus_exchange}" WHERE "index" >= {last_index};''')
 
+                    last_timestamp_in_original_table = get_last_timestamp_from_ohlcv_table(table_with_ohlcv_data_df)
+
                     # drop the last row from df
                     table_with_ohlcv_data_df = table_with_ohlcv_data_df.drop(table_with_ohlcv_data_df.index[-1])
 
@@ -344,20 +372,26 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     # if min_volume_over_last_n_days_in_dollars < 2 * last_bitcoin_price:
                     #     continue
 
-                    current_timestamp = time.time()
-                    last_timestamp_in_df = ohlcv_data_several_last_rows_df.tail(1).index.item() / 1000.0
-                    print("current_timestamp=", current_timestamp)
-                    print("ohlcv_data_several_last_rows_df.tail(1).index.item()=",
-                          ohlcv_data_several_last_rows_df.tail(1).index.item() / 1000.0)
-
-                    # check if the pair is active
-                    timeframe_in_seconds = convert_string_timeframe_into_seconds(timeframe)
-                    if not abs(current_timestamp - last_timestamp_in_df) < (timeframe_in_seconds):
-                        print(f"not quite active trading pair {trading_pair} on {exchange}")
-                        not_active_pair_counter = not_active_pair_counter + 1
-                        print("not_active_pair_counter=", not_active_pair_counter)
-                        list_of_inactive_pairs.append(f"{trading_pair}_on_{exchange}")
-                        continue
+                    # current_timestamp = time.time()
+                    # last_timestamp_in_df = ohlcv_data_several_last_rows_df.tail(1).index.item() / 1000.0
+                    # print("current_timestamp=", current_timestamp)
+                    # print("ohlcv_data_several_last_rows_df.tail(1).index.item()=",
+                    #       ohlcv_data_several_last_rows_df.tail(1).index.item() / 1000.0)
+                    #
+                    # # check if the pair is active
+                    # timeframe_in_seconds = convert_string_timeframe_into_seconds(timeframe)
+                    # if not abs(current_timestamp - last_timestamp_in_df) < (timeframe_in_seconds):
+                    #     print(f"not quite active trading pair {trading_pair} on {exchange}")
+                    #     not_active_pair_counter = not_active_pair_counter + 1
+                    #     print("not_active_pair_counter=", not_active_pair_counter)
+                    #     list_of_inactive_pairs.append(f"{trading_pair}_on_{exchange}")
+                    #
+                    #
+                    #     ## drop table from ohlcv db if the pair is inactive
+                    #     # drop_table(string_for_comparison_pair_plus_exchange,engine)
+                    #
+                    #
+                    #     continue
                     print("1program got here")
                     # try:
                     #     ohlcv_data_several_last_rows_df['Timestamp'] = \
@@ -431,9 +465,32 @@ def get_hisorical_data_from_exchange_for_many_symbols(last_bitcoin_price,exchang
                     #     continue
                     print("ohlcv_data_several_last_rows_df6")
                     print(ohlcv_data_several_last_rows_df.to_string())
+
+                    # last_timestamp_in_df = ohlcv_data_several_last_rows_df.tail(1).index.item() / 1000.0
+                    last_timestamp_in_df=ohlcv_data_several_last_rows_df["Timestamp"].iat[-1]
+                    is_pair_active_bool = is_pair_active(ohlcv_data_several_last_rows_df, last_timestamp_in_df,
+                                                         timeframe, trading_pair,
+                                                         exchange)
+
                     if len(ohlcv_data_several_last_rows_df) <= 1:
                         print("nothing_added")
+
+                        last_timestamp_in_df = last_timestamp_in_original_table
+                        is_pair_active_bool = is_pair_active(ohlcv_data_several_last_rows_df, last_timestamp_in_df,
+                                                             timeframe, trading_pair,
+                                                             exchange)
+                        if not is_pair_active_bool:
+                            drop_table(string_for_comparison_pair_plus_exchange,engine)
+                            print(f"{string_for_comparison_pair_plus_exchange} dropped1")
                         continue
+
+                    #nothing new is added and the pair is inactive
+                    if not is_pair_active_bool:
+                        drop_table(string_for_comparison_pair_plus_exchange, engine)
+                        print(f"{string_for_comparison_pair_plus_exchange} dropped2")
+                        continue
+
+
                     # try:
                     #     ohlcv_data_several_last_rows_df['open_time'] = \
                     #         [datetime.datetime.timestamp(x) for x in ohlcv_data_several_last_rows_df["Timestamp"]]
@@ -538,7 +595,7 @@ def get_real_time_bitcoin_price():
     last_bitcoin_price=btc_ticker['close']
     return last_bitcoin_price
 
-def connect_to_postres_db_without_deleting_it_first(database):
+def connect_to_postgres_db_without_deleting_it_first(database):
     dialect = db_config.dialect
     driver = db_config.driver
     password = db_config.password
@@ -569,7 +626,7 @@ def connect_to_postres_db_without_deleting_it_first(database):
 def get_list_of_tables_in_db_with_db_as_parameter(database_where_ohlcv_for_cryptos_is):
     '''get list of all tables in db which is given as parameter'''
     engine_for_ohlcv_data_for_cryptos, connection_to_ohlcv_data_for_cryptos = \
-        connect_to_postres_db_without_deleting_it_first(database_where_ohlcv_for_cryptos_is)
+        connect_to_postgres_db_without_deleting_it_first(database_where_ohlcv_for_cryptos_is)
 
     inspector = inspect(engine_for_ohlcv_data_for_cryptos)
     list_of_tables_in_db = inspector.get_table_names()
@@ -621,10 +678,10 @@ def fetch_historical_usdt_pairs_asynchronously(last_bitcoin_price,engine,exchang
     for exchange in exchanges_list:
         '''SELECT 'exchange" 
             FROM public."ticker_exchange_print_time" 
-            WHERE "next_bar_print_time_utc"='00:00:00' 
+            WHERE "next_bar_print_time_utc"='16:00:00' 
             GROUP BY "exchange";'''
         list_of_exchanges_where_next_bar_print_utc_time_16= \
-            ["huobipro"]
+            ["huobi","huobipro","lbank2","lbank"]
             # ["huobipro","huobi","digifinex","bitrue","lbank2","lbank"]
 
         if exchange not in list_of_exchanges_where_next_bar_print_utc_time_16:
@@ -643,7 +700,7 @@ def fetch_historical_usdt_pairs_asynchronously(last_bitcoin_price,engine,exchang
 def fetch_all_ohlcv_tables(timeframe,database_name,last_bitcoin_price):
 
     engine , connection_to_ohlcv_for_usdt_pairs =\
-        connect_to_postres_db_without_deleting_it_first (database_name)
+        connect_to_postgres_db_without_deleting_it_first (database_name)
     exchanges_list = ccxt.exchanges
     how_many_exchanges = len ( exchanges_list )
     step_for_exchanges = 50

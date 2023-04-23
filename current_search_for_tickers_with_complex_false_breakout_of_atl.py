@@ -21,6 +21,9 @@ from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_a
 from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time import check_atl_breakout
 from count_leading_zeros_in_a_number import count_zeros
 from get_info_from_load_markets import get_spread
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time2 import fill_df_with_info_if_atl_was_broken_on_other_exchanges
+from check_if_ath_or_atl_was_not_broken_over_long_periond_of_time2 import fill_df_with_info_if_ath_was_broken_on_other_exchanges
+
 
 def get_last_asset_type_url_maker_and_taker_fee_from_ohlcv_table(ohlcv_data_df):
     asset_type = ohlcv_data_df["asset_type"].iat[-1]
@@ -486,7 +489,7 @@ def find_if_level_is_round(level):
             return level_is_round
 
 
-def connect_to_postres_db_without_deleting_it_first(database):
+def connect_to_postgres_db_without_deleting_it_first(database):
     dialect = db_config.dialect
     driver = db_config.driver
     password = db_config.password
@@ -1020,16 +1023,52 @@ def search_for_tickers_with_false_breakout_situations(db_where_ohlcv_data_for_st
 
     engine_for_ohlcv_data_for_stocks , \
     connection_to_ohlcv_data_for_stocks = \
-        connect_to_postres_db_without_deleting_it_first ( db_where_ohlcv_data_for_stocks_is_stored )
+        connect_to_postgres_db_without_deleting_it_first ( db_where_ohlcv_data_for_stocks_is_stored )
 
     engine_for_db_where_ticker_which_may_have_false_breakout_situations , \
     connection_to_db_where_ticker_which_may_have_false_breakout_situations = \
-        connect_to_postres_db_without_deleting_it_first ( db_where_ticker_which_may_have_false_breakout_situations )
+        connect_to_postgres_db_without_deleting_it_first ( db_where_ticker_which_may_have_false_breakout_situations )
 
     # drop_table ( table_where_ticker_which_may_have_false_breakout_situations_from_ath_will_be ,
     #              engine_for_db_where_ticker_which_may_have_false_breakout_situations )
     drop_table ( table_where_ticker_which_may_have_false_breakout_situations_from_atl_will_be ,
                  engine_for_db_where_ticker_which_may_have_false_breakout_situations )
+
+    ##########################################################
+    db_where_ohlcv_data_for_stocks_is_stored_0000 = np.nan
+    db_where_ohlcv_data_for_stocks_is_stored_1600 = np.nan
+    engine_for_ohlcv_data_for_stocks_0000 = np.nan
+    engine_for_ohlcv_data_for_stocks_1600 = np.nan
+    list_of_tables_in_ohlcv_db_0000 = np.nan
+    try:
+        #######################################################################################
+        ###################################################################################
+        db_where_ohlcv_data_for_stocks_is_stored_0000 = "ohlcv_1d_data_for_usdt_pairs_0000"
+        db_where_ohlcv_data_for_stocks_is_stored_1600 = db_where_ohlcv_data_for_stocks_is_stored
+        engine_for_ohlcv_data_for_stocks_1600, \
+            connection_to_ohlcv_data_for_stocks_1600 = \
+            connect_to_postgres_db_without_deleting_it_first(db_where_ohlcv_data_for_stocks_is_stored_1600)
+
+        engine_for_ohlcv_data_for_stocks_0000, \
+            connection_to_ohlcv_data_for_stocks_0000 = \
+            connect_to_postgres_db_without_deleting_it_first(db_where_ohlcv_data_for_stocks_is_stored_0000)
+        ###################################################################################
+        #######################################################################################
+
+        ###################################################################################
+        # ---------------------------------------------------------------------------
+        list_of_tables_in_ohlcv_db_0000 = \
+            get_list_of_tables_in_db(engine_for_ohlcv_data_for_stocks_0000)
+
+        list_of_tables_in_ohlcv_db_1600 = \
+            get_list_of_tables_in_db(engine_for_ohlcv_data_for_stocks_1600)
+
+        print('list_of_tables_in_ohlcv_db_0000')
+        print(list_of_tables_in_ohlcv_db_0000)
+        # -----------------------------------------------------------------------------
+        ###################################################################################
+    except:
+        traceback.print_exc()
 
     list_of_tables_in_ohlcv_db=\
         get_list_of_tables_in_db ( engine_for_ohlcv_data_for_stocks )
@@ -1699,6 +1738,25 @@ def search_for_tickers_with_false_breakout_situations(db_where_ohlcv_data_for_st
                                                                 df_with_level_atr_bpu_bsu_etc.loc[0,"taker_fee"] = taker_fee
                                                                 df_with_level_atr_bpu_bsu_etc.loc[0,
                                                                     "url_of_trading_pair"] = url_of_trading_pair
+                                                                df_with_level_atr_bpu_bsu_etc.loc[
+                                                                    0, "number_of_available_bars"] = number_of_available_days
+                                                            except:
+                                                                traceback.print_exc()
+
+                                                            try:
+                                                                #############################################
+                                                                # add info to dataframe about whether level was broken on other exchanges
+                                                                df_with_level_atr_bpu_bsu_etc = fill_df_with_info_if_atl_was_broken_on_other_exchanges(
+                                                                    stock_name,
+                                                                    db_where_ohlcv_data_for_stocks_is_stored_1600,
+                                                                    db_where_ohlcv_data_for_stocks_is_stored_0000,
+                                                                    table_with_ohlcv_data_df,
+                                                                    engine_for_ohlcv_data_for_stocks_1600,
+                                                                    engine_for_ohlcv_data_for_stocks_0000,
+                                                                    atl,
+                                                                    list_of_tables_in_ohlcv_db_0000,
+                                                                    df_with_level_atr_bpu_bsu_etc,
+                                                                    0)
                                                             except:
                                                                 traceback.print_exc()
 
